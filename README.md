@@ -26,7 +26,7 @@ The system allows users to upload documents, converts them into vector embedding
 
 ## 🌐 Live Demo
 
-**🔗 Live Application:**  
+**🔗 Live Application v1:**  
 https://enterprise-rag-application-3.onrender.com
 
 
