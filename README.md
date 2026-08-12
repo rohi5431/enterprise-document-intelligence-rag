@@ -1,4 +1,4 @@
-## 🚀 Enterprise RAG Platform
+## 🚀 Enterprise Document Intelligence & RAG Platform
 
 
 
