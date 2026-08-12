@@ -770,26 +770,32 @@ Response:
 
 ## 🚀 How It Works
 
+### 📥 Document Ingestion
 
+1. **User uploads a document.**
+2. **Document Detection** identifies whether each PDF page is digital or scanned.
+3. **Digital pages** are processed using **PyMuPDF**.
+4. **Scanned pages** are rendered using PyMuPDF, preprocessed with **OpenCV**, and processed through **PaddleOCR**.
+5. **Layout Analysis** identifies text, tables, figures, and other document structures.
+6. **Reading Order** reconstructs the logical flow of the document.
+7. **Semantic / Layout-Aware Chunking** creates meaningful chunks while preserving document structure.
+8. **Embeddings** are generated for the processed chunks.
+9. **Qdrant** stores the generated embeddings and document metadata.
 
-1. User uploads a document.
+### 🔍 Query & Retrieval
 
-2. The backend extracts text from the document.
+10. **User submits a question** through the AI chat interface.
+11. The query is converted into an **embedding**.
+12. **Semantic similarity search** retrieves the most relevant document chunks from Qdrant.
+13. **Hybrid retrieval / ranking** selects the most relevant context.
+14. Retrieved chunks and metadata are passed to the **RAG context builder**.
+15. The context is combined with the user's question to construct the LLM prompt.
 
-3. The text is split into chunks.
+### 🤖 Generation & Response
 
-4. Each chunk is converted into vector embeddings.
-
-5. Embeddings are stored inside a vector database.
-
-6. The user's query is converted into an embedding.
-
-7. Similarity search retrieves the most relevant chunks.
-
-8. Retrieved context is combined with the user question.
-
-9. The LLM generates a grounded and accurate answer.
-
+16. The **LLM** generates an answer grounded in the retrieved document context.
+17. The response is **streamed to the user** when streaming is enabled.
+18. **Source citations** are returned with the answer so the user can trace the information back to the source document.
 
 
 ---
