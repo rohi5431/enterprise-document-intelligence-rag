@@ -804,30 +804,28 @@ Response:
 
 ## 📈 Learning Outcomes
 
-
-
 This project demonstrates practical experience with:
 
-
-
-- Retrieval-Augmented Generation (RAG)
-
-- FastAPI Backend Development
-
-- Semantic Search
-
-- Vector Databases
-
-- Embedding Models
-
-- LLM Integration
-
-- API Design
-
-- Scalable System Architecture
-
-- Production-Level Project Structure
-
+* Retrieval-Augmented Generation (RAG)
+* FastAPI Backend Development
+* Document AI & Intelligent Document Ingestion
+* Digital & Scanned PDF Processing
+* OCR with PaddleOCR
+* Image Preprocessing with OpenCV
+* PDF Processing with PyMuPDF
+* Document Layout Analysis
+* Reading Order Detection
+* Layout-Aware & Semantic Chunking
+* Embedding Generation
+* Vector Databases & Qdrant
+* Semantic & Hybrid Search
+* LLM Integration
+* Context-Grounded Generation
+* Source Citations & Traceability
+* Streaming AI Responses
+* API Design
+* Scalable System Architecture
+* Production-Level RAG Pipeline
 
 
 ---
