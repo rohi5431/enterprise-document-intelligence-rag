@@ -1,0 +1,62 @@
+[
+  {
+    "id": 1,
+    "query": "What is process scheduling in operating systems?",
+    "relevant_doc_ids": [1],
+    "ground_truth_answer": "Process scheduling is the activity of the process manager that handles the removal of the running process from the CPU and the selection of another process on the basis of a particular strategy."
+  },
+  {
+    "id": 2,
+    "query": "Explain how hybrid retrieval works in RAG.",
+    "relevant_doc_ids": [2],
+    "ground_truth_answer": "Hybrid retrieval combines dense vector retrieval (for semantic similarity) and sparse keyword retrieval (such as BM25) using fusion algorithms like Reciprocal Rank Fusion (RRF) to merge the candidate sets."
+  },
+  {
+    "id": 3,
+    "query": "What is the purpose of a cross-encoder reranker?",
+    "relevant_doc_ids": [2, 3],
+    "ground_truth_answer": "A cross-encoder reranker evaluates the exact semantic relationship between a query and a document chunk by processing them together, yielding highly accurate relevance scores to sort retrieved documents."
+  },
+  {
+    "id": 4,
+    "query": "How does token optimization improve RAG performance?",
+    "relevant_doc_ids": [4],
+    "ground_truth_answer": "Token optimization fits context in the LLM's context window by pruning redundant information and selecting only the most relevant chunks, avoiding cost and latency overhead."
+  },
+  {
+    "id": 5,
+    "query": "What is JWT authentication role in multi-tenant RAG?",
+    "relevant_doc_ids": [5],
+    "ground_truth_answer": "JWT authentication verifies user identity and roles (user/admin), injecting tenant identifiers into request context to enforce metadata filtering and isolate data access."
+  },
+  {
+    "id": 6,
+    "query": "Explain the difference between dense and sparse vectors.",
+    "relevant_doc_ids": [2],
+    "ground_truth_answer": "Dense vectors represent global semantic meaning using continuous embeddings (e.g. from SentenceTransformers), while sparse vectors represent exact word counts or keyword matches (e.g. BM25)."
+  },
+  {
+    "id": 7,
+    "query": "How is Reciprocal Rank Fusion (RRF) calculated?",
+    "relevant_doc_ids": [2],
+    "ground_truth_answer": "RRF calculates a fused score by summing the reciprocals of the ranks of a document chunk in different retriever lists, plus a constant parameter k (usually 60)."
+  },
+  {
+    "id": 8,
+    "query": "What are the key metrics for RAG retrieval evaluation?",
+    "relevant_doc_ids": [6],
+    "ground_truth_answer": "Key metrics include Hit Rate, Precision@K, Recall@K, Mean Reciprocal Rank (MRR), and Normalized Discounted Cumulative Gain (nDCG@K)."
+  },
+  {
+    "id": 9,
+    "query": "How does Celery manage background document ingestion?",
+    "relevant_doc_ids": [7],
+    "ground_truth_answer": "Celery executes the load-chunk-embed-store ingestion task asynchronously on separate worker processes, updating document processing status in the database on completion or failure."
+  },
+  {
+    "id": 10,
+    "query": "What are the latency components tracked in query logging?",
+    "relevant_doc_ids": [8],
+    "ground_truth_answer": "Query logging tracks total request latency, retrieval database query latency, cross-encoder reranking latency, and LLM text generation latency."
+  }
+]

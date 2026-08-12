@@ -1,0 +1,176 @@
+You are a helpful AI assistant.
+
+Answer ONLY using the provided context.
+
+If the answer is not present in the context,
+say:
+"I could not find that information in the provided documents."
+
+Conversation History:
+user: [Recent Conversation]
+User: What technologies are mentioned in Rohit's resume?
+Assistant: Rohit Kumar's resume mentions the following technologies:
+
+* **Languages:** C/C++, Python, JavaScript, TypeScript
+* **Frontend:** React.js, HTML, CSS, Tailwind CSS
+* **Backend:** Node.js, Express.js, REST APIs, WebSockets, JWT, BullMQ, Socket.IO
+* **Databases:** MongoDB, MySQL, Redis
+* **Cloud & DevOps:** Docker, AWS S3, CI/CD, Render, Vercel 
+
+User: What technologies are mentioned in Rohit's resume?
+Assistant: Rohit Kumar's resume mentions the following technologies:
+
+* **Languages:** C/C++, Python, JavaScript, TypeScript
+* **Frontend:** React.js, HTML, CSS, Tailwind CSS
+* **Backend:** Node.js, Express.js, REST APIs, WebSockets, JWT, BullMQ, Socket.IO
+* **Databases:** MongoDB, MySQL, Redis
+* **Cloud & DevOps:** Docker, AWS S3, CI/CD, Render, Vercel 
+
+
+
+User: What technologies are mentioned in Rohit's resume?
+Assistant: Rohit Kumar's resume mentions the following technologies:
+
+* **Languages:** C/C++, Python, JavaScript, TypeScript
+* **Frontend:** React.js, HTML, CSS, Tailwind CSS
+* **Backend:** Node.js, Express.js, REST APIs, WebSockets, JWT, BullMQ, Socket.IO
+* **Databases:** MongoDB, MySQL, Redis
+* **Cloud & DevOps:** Docker, AWS S3, CI/CD, Render, Vercel 
+
+
+
+User: tell me about the cgpa which is present inside the resume
+Assistant: The CGPA mentioned in Rohit's resume is 7.28. 
+
+
+Current question: tell me about the third project present inside the resume give me first point of this project
+assistant: I could not find that information in the provided documents. 
+
+user: [Recent Conversation]
+User: What technologies are mentioned in Rohit's resume?
+Assistant: Rohit Kumar's resume mentions the following technologies:
+
+* **Languages:** C/C++, Python, JavaScript, TypeScript
+* **Frontend:** React.js, HTML, CSS, Tailwind CSS
+* **Backend:** Node.js, Express.js, REST APIs, WebSockets, JWT, BullMQ, Socket.IO
+* **Databases:** MongoDB, MySQL, Redis
+* **Cloud & DevOps:** Docker, AWS S3, CI/CD, Render, Vercel 
+
+User: What technologies are mentioned in Rohit's resume?
+Assistant: Rohit Kumar's resume mentions the following technologies:
+
+* **Languages:** C/C++, Python, JavaScript, TypeScript
+* **Frontend:** React.js, HTML, CSS, Tailwind CSS
+* **Backend:** Node.js, Express.js, REST APIs, WebSockets, JWT, BullMQ, Socket.IO
+* **Databases:** MongoDB, MySQL, Redis
+* **Cloud & DevOps:** Docker, AWS S3, CI/CD, Render, Vercel 
+
+
+
+User: What technologies are mentioned in Rohit's resume?
+Assistant: Rohit Kumar's resume mentions the following technologies:
+
+* **Languages:** C/C++, Python, JavaScript, TypeScript
+* **Frontend:** React.js, HTML, CSS, Tailwind CSS
+* **Backend:** Node.js, Express.js, REST APIs, WebSockets, JWT, BullMQ, Socket.IO
+* **Databases:** MongoDB, MySQL, Redis
+* **Cloud & DevOps:** Docker, AWS S3, CI/CD, Render, Vercel 
+
+
+
+User: tell me about the cgpa which is present inside the resume
+Assistant: The CGPA mentioned in Rohit's resume is 7.28. 
+
+User: tell me about the third project present inside the resume give me first point of this project
+Assistant: I could not find that information in the provided documents. 
+
+
+Current question: tel me about the first point of the distributed job queue system in project experience
+assistant: I could not find that information in the provided documents. 
+
+
+
+Context:
+[1] (Rohit_Kumar_FSD!.pdf) Page 1
+Rohit Kumar
+ +91 9193040112 | # rohitk60316@gmail.com | ï LinkedIn | § GitHub | Ð LeetCode
+PROFESSIONAL SUMMARY
+Backend Engineer | Full Stack Developer | Distributed Systems & Cloud-Native Infrastructure
+Computer Science student focused on backend and distributed architectures, building scalable APIs and event-driven systems
+using Node.js, Python, Redis, and MongoDB. Interested in low-latency platforms and solving complex problems at scale.
+EDUCATION
+Indian Institute of Information Technology, Nagpur
+
+---
+
+[2] (Northeastern_University_COS_Faculty_CV_Template__1_ (11).pdf) Page 1
+CGPA: 7.28
+Relevant Coursework: Data Structures and Algorithms, Operating Systems, Database Management Systems, Computer Net-
+works, Object-Oriented Programming, System Design, Distributed Systems
+TECHNICAL SKILLS
+Languages: C/C++, Python, JavaScript, TypeScript
+Frontend: React.js, HTML, CSS, Tailwind CSS
+Backend: Node.js, Express.js, REST APIs, WebSockets, JWT, BullMQ, Socket.IO
+Databases: MongoDB, MySQL, Redis
+Cloud & DevOps: Docker, AWS S3, CI/CD, Render, Vercel
+
+---
+
+[3] (Northeastern_University_COS_Faculty_CV_Template__1_ (11).pdf) Page 1
+Rohit Kumar
+ +91 9193040112 | # rohitk60316@gmail.com | ï LinkedIn | § GitHub | Ð LeetCode
+PROFESSIONAL SUMMARY
+Computer Science student with experience building secure and scalable web applications and distributed systems. Strong in
+DSA, system design, real-time architectures, authentication, and cloud-based file storage.
+EDUCATION
+Indian Institute of Information Technology, Nagpur
+Aug 2023 – Jun 2027
+Bachelor of Technology in Computer Science and Engineering
+CGPA: 7.28
+
+Question:
+[Recent Conversation]
+User: What technologies are mentioned in Rohit's resume?
+Assistant: Rohit Kumar's resume mentions the following technologies:
+
+* **Languages:** C/C++, Python, JavaScript, TypeScript
+* **Frontend:** React.js, HTML, CSS, Tailwind CSS
+* **Backend:** Node.js, Express.js, REST APIs, WebSockets, JWT, BullMQ, Socket.IO
+* **Databases:** MongoDB, MySQL, Redis
+* **Cloud & DevOps:** Docker, AWS S3, CI/CD, Render, Vercel 
+
+User: What technologies are mentioned in Rohit's resume?
+Assistant: Rohit Kumar's resume mentions the following technologies:
+
+* **Languages:** C/C++, Python, JavaScript, TypeScript
+* **Frontend:** React.js, HTML, CSS, Tailwind CSS
+* **Backend:** Node.js, Express.js, REST APIs, WebSockets, JWT, BullMQ, Socket.IO
+* **Databases:** MongoDB, MySQL, Redis
+* **Cloud & DevOps:** Docker, AWS S3, CI/CD, Render, Vercel 
+
+
+
+User: What technologies are mentioned in Rohit's resume?
+Assistant: Rohit Kumar's resume mentions the following technologies:
+
+* **Languages:** C/C++, Python, JavaScript, TypeScript
+* **Frontend:** React.js, HTML, CSS, Tailwind CSS
+* **Backend:** Node.js, Express.js, REST APIs, WebSockets, JWT, BullMQ, Socket.IO
+* **Databases:** MongoDB, MySQL, Redis
+* **Cloud & DevOps:** Docker, AWS S3, CI/CD, Render, Vercel 
+
+
+
+User: tell me about the cgpa which is present inside the resume
+Assistant: The CGPA mentioned in Rohit's resume is 7.28. 
+
+User: tell me about the third project present inside the resume give me first point of this project
+Assistant: I could not find that information in the provided documents. 
+
+User: tel me about the first point of the distributed job queue system in project experience
+Assistant: I could not find that information in the provided documents. 
+
+
+Current question: please tell me about the leetcode rating which is mention in achievement and certificate section
+
+Answer:

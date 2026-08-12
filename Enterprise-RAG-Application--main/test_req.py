@@ -1,0 +1,2 @@
+# import json, urllib.request 
+# body=json.dumps({\" email\:\copilot-test@example.com\,\password\:\TestPass123!\,\full_name\:\Copilot "Test\}).encode('utf-8') ; echo req=urllib.request.Request(\http://127.0.0.1:8000/api/v1/auth/register\, data=body, headers={\Content-Type\:\application/json\}) ; echo with urllib.request.urlopen(req, timeout=10) as resp: ; echo     print(resp.status) ; echo     print(resp.read().decode('utf-8')) ; python test_req.py

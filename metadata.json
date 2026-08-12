@@ -1,0 +1,6 @@
+{
+  "name": "Enterprise RAG Platform",
+  "description": "An Enterprise RAG (Retrieval-Augmented Generation) Platform with support for PostgreSQL, Redis, Qdrant, Ollama, and Gemini.",
+  "requestFramePermissions": ["microphone"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

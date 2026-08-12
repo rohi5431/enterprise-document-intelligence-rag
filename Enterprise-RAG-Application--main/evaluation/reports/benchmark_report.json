@@ -1,0 +1,262 @@
+{
+  "summary": {
+    "evaluation_timestamp": "2026-06-13T13:04:02Z",
+    "dataset": "sample_qa.json",
+    "samples_evaluated": 10,
+    "k_parameter": 5,
+    "total_execution_time_sec": 2684.58,
+    "averages": {
+      "hit_rate": 0.1,
+      "precision_at_k": 0.04,
+      "recall_at_k": 0.2,
+      "mrr": 0.0333,
+      "ndcg_at_k": 0.0931,
+      "faithfulness": 0.675,
+      "context_relevance": 0.281,
+      "answer_relevance": 0.67
+    }
+  },
+  "detailed_results": [
+    {
+      "query": "What is process scheduling in operating systems?",
+      "ground_truth_docs": [
+        1
+      ],
+      "retrieved_docs": [
+        9,
+        12,
+        12,
+        4,
+        4
+      ],
+      "answer": "This document does not contain information about process scheduling in operating systems. \n",
+      "metrics": {
+        "hit_rate": 0.0,
+        "precision_at_k": 0.0,
+        "recall_at_k": 0.0,
+        "mrr": 0.0,
+        "ndcg_at_k": 0.0,
+        "faithfulness": 1.0,
+        "context_relevance": 0.25,
+        "answer_relevance": 0.0
+      }
+    },
+    {
+      "query": "Explain how hybrid retrieval works in RAG.",
+      "ground_truth_docs": [
+        2
+      ],
+      "retrieved_docs": [
+        16,
+        16,
+        4,
+        12,
+        12
+      ],
+      "answer": "According to the provided context, hybrid retrieval in RAG combines multilingual dense embeddings, sparse keyword search, and cross-encoder re-ranking for result fusion. \n",
+      "metrics": {
+        "hit_rate": 0.0,
+        "precision_at_k": 0.0,
+        "recall_at_k": 0.0,
+        "mrr": 0.0,
+        "ndcg_at_k": 0.0,
+        "faithfulness": 0.8,
+        "context_relevance": 0.75,
+        "answer_relevance": 0.8
+      }
+    },
+    {
+      "query": "What is the purpose of a cross-encoder reranker?",
+      "ground_truth_docs": [
+        2,
+        3
+      ],
+      "retrieved_docs": [
+        16,
+        12,
+        12,
+        16,
+        4
+      ],
+      "answer": "The provided text describes that a cross-encoder re-ranking system is used in LangGraph to improve the quality and relevance of answers generated from banking and policy documents.  It's part of a hybrid retrieval approach for multilingual queries. \n",
+      "metrics": {
+        "hit_rate": 0.0,
+        "precision_at_k": 0.0,
+        "recall_at_k": 0.0,
+        "mrr": 0.0,
+        "ndcg_at_k": 0.0,
+        "faithfulness": 0.75,
+        "context_relevance": 0.2,
+        "answer_relevance": 0.6
+      }
+    },
+    {
+      "query": "How does token optimization improve RAG performance?",
+      "ground_truth_docs": [
+        4
+      ],
+      "retrieved_docs": [
+        9,
+        16,
+        4,
+        4,
+        12
+      ],
+      "answer": "The provided text doesn't contain information about how token optimization improves RAG performance. \n",
+      "metrics": {
+        "hit_rate": 1.0,
+        "precision_at_k": 0.4,
+        "recall_at_k": 2.0,
+        "mrr": 0.3333333333333333,
+        "ndcg_at_k": 0.9306765580733931,
+        "faithfulness": 0.8,
+        "context_relevance": 0.2,
+        "answer_relevance": 1.0
+      }
+    },
+    {
+      "query": "What is JWT authentication role in multi-tenant RAG?",
+      "ground_truth_docs": [
+        5
+      ],
+      "retrieved_docs": [
+        13,
+        9,
+        4,
+        2,
+        3
+      ],
+      "answer": "The provided context does not contain information about the role of JWT authentication in a multi-tenant RAG (Real-Access Group). \n",
+      "metrics": {
+        "hit_rate": 0.0,
+        "precision_at_k": 0.0,
+        "recall_at_k": 0.0,
+        "mrr": 0.0,
+        "ndcg_at_k": 0.0,
+        "faithfulness": 0.8,
+        "context_relevance": 0.8,
+        "answer_relevance": 0.7
+      }
+    },
+    {
+      "query": "Explain the difference between dense and sparse vectors.",
+      "ground_truth_docs": [
+        2
+      ],
+      "retrieved_docs": [
+        12,
+        12,
+        4,
+        12,
+        16
+      ],
+      "answer": "I cannot answer your question based on the provided context. The context focuses on topics like Data Structures & Algorithms, Computer Vision, and Deepfake detection. It does not contain information about dense and sparse vectors. \n",
+      "metrics": {
+        "hit_rate": 0.0,
+        "precision_at_k": 0.0,
+        "recall_at_k": 0.0,
+        "mrr": 0.0,
+        "ndcg_at_k": 0.0,
+        "faithfulness": 0.8,
+        "context_relevance": 0.01,
+        "answer_relevance": 0.8
+      }
+    },
+    {
+      "query": "How is Reciprocal Rank Fusion (RRF) calculated?",
+      "ground_truth_docs": [
+        2
+      ],
+      "retrieved_docs": [
+        16,
+        3,
+        12,
+        12,
+        12
+      ],
+      "answer": "The provided text does not contain information on how Reciprocal Rank Fusion (RRF) is calculated. \n",
+      "metrics": {
+        "hit_rate": 0.0,
+        "precision_at_k": 0.0,
+        "recall_at_k": 0.0,
+        "mrr": 0.0,
+        "ndcg_at_k": 0.0,
+        "faithfulness": 1.0,
+        "context_relevance": 0.0,
+        "answer_relevance": 1.0
+      }
+    },
+    {
+      "query": "What are the key metrics for RAG retrieval evaluation?",
+      "ground_truth_docs": [
+        6
+      ],
+      "retrieved_docs": [
+        16,
+        16,
+        3,
+        2,
+        16
+      ],
+      "answer": "The provided context does not contain information about the key metrics for RAG retrieval evaluation. \n",
+      "metrics": {
+        "hit_rate": 0.0,
+        "precision_at_k": 0.0,
+        "recall_at_k": 0.0,
+        "mrr": 0.0,
+        "ndcg_at_k": 0.0,
+        "faithfulness": 0.8,
+        "context_relevance": 0.2,
+        "answer_relevance": 0.8
+      }
+    },
+    {
+      "query": "How does Celery manage background document ingestion?",
+      "ground_truth_docs": [
+        7
+      ],
+      "retrieved_docs": [
+        16,
+        16,
+        9,
+        12,
+        12
+      ],
+      "answer": "The provided context doesn't contain information about how Celery manages background document ingestion. \n",
+      "metrics": {
+        "hit_rate": 0.0,
+        "precision_at_k": 0.0,
+        "recall_at_k": 0.0,
+        "mrr": 0.0,
+        "ndcg_at_k": 0.0,
+        "faithfulness": 0.0,
+        "context_relevance": 0.2,
+        "answer_relevance": 0.8
+      }
+    },
+    {
+      "query": "What are the latency components tracked in query logging?",
+      "ground_truth_docs": [
+        8
+      ],
+      "retrieved_docs": [
+        4,
+        9,
+        13,
+        9,
+        4
+      ],
+      "answer": "This document does not contain the answer to your question. \n",
+      "metrics": {
+        "hit_rate": 0.0,
+        "precision_at_k": 0.0,
+        "recall_at_k": 0.0,
+        "mrr": 0.0,
+        "ndcg_at_k": 0.0,
+        "faithfulness": 0.0,
+        "context_relevance": 0.2,
+        "answer_relevance": 0.2
+      }
+    }
+  ]
+}
