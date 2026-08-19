@@ -6,8 +6,8 @@ WORKDIR /app
 # Copy dependency manifests
 COPY package*.json ./
 
-# Install all dependencies including devDependencies to build the app
-RUN npm ci
+# Install all dependencies to build the app
+RUN npm install
 
 # Copy application source
 COPY . .
@@ -15,8 +15,8 @@ COPY . .
 # Run production build (Vite client bundling + Esbuild backend bundling)
 RUN npm run build
 
-# Remove development dependencies to keep production image light
-RUN rm -rf node_modules && npm ci --only=production
+# Reinstall production-only dependencies
+RUN rm -rf node_modules && npm install --omit=dev
 
 # --- Production runner image ---
 FROM node:20-alpine
