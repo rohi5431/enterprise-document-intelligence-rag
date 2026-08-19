@@ -31,6 +31,7 @@ https://enterprise-rag-application-3.onrender.com
 
 **🔗 Live Application v2:**  
 https://enterprise-document-intelligence-rag-6.onrender.com
+
 ## 🎯 Project Goals
 
 
