@@ -35,5 +35,5 @@ COPY --from=builder /app/db.json ./db.json
 # Expose server ingress port
 EXPOSE 3000
 
-# Run the single CJS production server bundle
-CMD ["npm", "start"]
+# Directly launch the compiled CJS server bundle
+CMD ["node", "dist/server.cjs"]
