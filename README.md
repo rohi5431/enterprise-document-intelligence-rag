@@ -29,7 +29,8 @@ The system allows users to upload documents, converts them into vector embedding
 **🔗 Live Application v1:**  
 https://enterprise-rag-application-3.onrender.com
 
-
+**🔗 Live Application v2:**  
+https://enterprise-document-intelligence-rag-6.onrender.com
 ## 🎯 Project Goals
 
 
