@@ -367,12 +367,12 @@ Text        Tables       Figures
 <img width="1865" height="843" alt="image" src="https://github.com/user-attachments/assets/fac53c1f-f45e-45c5-bcc5-b0801bcd1cfe" />
 
 
-
-<img width="1868" height="829" alt="image" src="https://github.com/user-attachments/assets/681109b7-9592-46c0-ba20-0b601142436e" />
-
+<img width="1904" height="920" alt="image" src="https://github.com/user-attachments/assets/8314ed06-2752-4180-a152-5178c1020c02" />
 
 
-<img width="1872" height="842" alt="image" src="https://github.com/user-attachments/assets/5c54d0ee-8aa4-4e75-a4fb-4e8330f68643" />
+
+<img width="1909" height="927" alt="image" src="https://github.com/user-attachments/assets/fb2a4a0e-1474-4318-b36e-551e1339aa83" />
+
 
 
 
