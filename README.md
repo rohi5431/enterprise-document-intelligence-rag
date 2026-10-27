@@ -1,27 +1,19 @@
-<<<<<<< HEAD
-## 🚀 Enterprise Document Intelligence & RAG Platform
+##  ContextRAG — Enterprise Document Intelligence & RAG Platform
 
+ContextRAG is an AI-powered document intelligence platform that transforms unstructured documents into searchable, context-aware knowledge. Built with FastAPI, React, and Qdrant, it leverages Retrieval-Augmented Generation (RAG), semantic search, and Large Language Models (LLMs) to generate grounded responses from user-uploaded documents.
 
+The platform combines document ingestion, intelligent text chunking, embedding generation, vector retrieval, and context-aware answer generation into a unified pipeline. It supports source citations, conversational memory, multi-session chat, and streaming responses to deliver a more transparent and interactive question-answering experience.
 
-An enterprise-grade Retrieval-Augmented Generation (RAG) application built with FastAPI that enables users to upload documents, perform semantic search, and generate context-aware answers using Large Language Models (LLMs).
+Designed with modular backend services and scalable retrieval workflows, ContextRAG aims to reduce hallucinations by grounding responses in relevant document content.
 
-
-
----
-
-
-
-## 📌 About the Project
-
-
-
-Traditional LLMs are limited to their training data and may generate hallucinated or outdated responses. This project solves that problem by combining document retrieval with LLM generation.
-
-
-
-The system allows users to upload documents, converts them into vector embeddings, stores them in a vector database, retrieves relevant context for a query, and generates accurate answers grounded in the uploaded documents.
-
-
+**Key Highlights**
+-  **Document Intelligence:** Extract, process, and index document content for retrieval.
+-  **Context-Aware RAG:** Generate responses grounded in relevant document passages.
+-  **Semantic Search:** Retrieve relevant information using vector embeddings and Qdrant.
+-  **Conversational AI:** Support multi-session conversations and contextual chat history.
+-  **Source Citations:** Connect generated answers to retrieved document context.
+-  **Streaming Responses:** Deliver generated answers incrementally for a responsive chat experience.
+-  **Secure Backend:** Integrate authentication and structured API services.
 
 ---
 
