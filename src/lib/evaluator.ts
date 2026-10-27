@@ -55,7 +55,7 @@ Provide your evaluation as a JSON object with keys:
 Do not include any markdown backticks, explanations, or introductory dialogue. Return ONLY the JSON.`;
 
     const response = await ai.models.generateContent({
-      model: "gemini-3.5-flash",
+      model: process.env.GEMINI_MODEL?.trim() || "gemini-3.8-flash",
       contents: evaluationPrompt,
       config: {
         responseMimeType: "application/json",

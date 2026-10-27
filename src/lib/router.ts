@@ -37,7 +37,7 @@ export function routeModel(
   // Rule 1: High Context Length (e.g. over 80,000 characters) - Route to Pro for high fidelity context modeling
   if (contextLength > 80000) {
     return {
-      model: "gemini-3.1-pro-preview",
+      model: "gemini-3.8-flash",
       reason: `Context payload is large (${Math.round(contextLength / 1000)}k chars). Routed to Pro for deeper recall.`,
       costEstimate: 0.0015,
     };
@@ -47,7 +47,7 @@ export function routeModel(
   const isComplex = COMPLEXITY_KEYWORDS.some((kw) => queryLower.includes(kw)) || query.length > 250;
   if (isComplex) {
     return {
-      model: "gemini-3.1-pro-preview",
+      model: "gemini-3.8-flash",
       reason: "Query exhibits high semantic complexity (keywords/analytical nature). Routed to Pro.",
       costEstimate: 0.0015,
     };
@@ -55,7 +55,7 @@ export function routeModel(
 
   // Default: Flash (High speed, extremely cost-effective)
   return {
-    model: "gemini-3.5-flash",
+    model: "gemini-3.8-flash",
     reason: "Simple informational lookup. Routed to Flash for optimal speed and cost-efficiency.",
     costEstimate: 0.00015,
   };

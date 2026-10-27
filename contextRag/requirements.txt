@@ -50,7 +50,7 @@ python-docx==1.1.0
 pypdf2==3.0.1
 markdown==3.6
 pdfplumber==0.11.0
-camelot-py[cv]==0.11.0
+camelot-py==0.11.0
 pytesseract==0.3.10
 Pillow==10.3.0
 langchain-text-splitters==0.2.1
@@ -58,6 +58,15 @@ langchain-text-splitters==0.2.1
 # ─── BM25 ──────────────────────────────────────────────────────────────────────
 rank-bm25==0.2.2
 nltk==3.8.1
+
+# ─── Graph RAG ──────────────────────────────────────────────────────────────────
+networkx>=3.3
+
+# ─── Web Search (internet fallback) ────────────────────────────────────────────
+duckduckgo-search>=6.2.0
+
+# ─── Image processing (handwriting OCR) ────────────────────────────────────────
+opencv-python-headless>=4.9.0
 
 # ─── Utilities ─────────────────────────────────────────────────────────────────
 python-dotenv==1.0.1

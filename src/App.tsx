@@ -22,6 +22,7 @@ import {
   apiRenameSession,
   apiSendMessage,
   apiStreamMessage,
+  StreamingUnavailableError,
 } from "./api";
 import type {
   ChatMessage,
@@ -234,7 +235,8 @@ function AppShell() {
       queryExpansion?: boolean;
       parentChild?: boolean;
       guardrails?: boolean;
-    }
+    },
+    attachments?: Array<{ name: string; type: string; dataUrl?: string; uploaded?: boolean }>
   ) => {
     if (!token) return;
 
@@ -242,8 +244,22 @@ function AppShell() {
     setStreaming(true);
     setLoading(true);
 
+    // Build conversation history from the last 6 messages (3 turns)
+    const historyWindow = messages.slice(-6);
+    const conversationHistory = historyWindow
+      .filter((m) => m.role === "user" || m.role === "assistant")
+      .map((m) => `${m.role === "user" ? "User" : "Assistant"}: ${m.content.slice(0, 400)}`)
+      .join("\n");
+
     setMessages((prev) => {
-      const withUser = [...prev, { role: "user" as const, content: text }];
+      const withUser = [
+        ...prev,
+        {
+          role: "user" as const,
+          content: text,
+          attachments: attachments && attachments.length > 0 ? attachments : undefined,
+        },
+      ];
       return [...withUser, { role: "assistant" as const, content: "", isStreaming: true, citations: [] }];
     });
 
@@ -280,6 +296,7 @@ function AppShell() {
           }
           if (event.type === "metadata") {
             citations = (event.sources as Citation[]) || [];
+            updateAssistant({ citations });
             retrievalMeta = event.retrieval_meta;
             const meta = event.retrieval_meta as Record<string, unknown>;
             if (meta?.latency_ms) {
@@ -304,14 +321,34 @@ function AppShell() {
             citations = (event.citations as Citation[]) || citations;
             feedbackId = event.feedback_id as string;
             evaluationMetrics = event.evaluation_metrics;
+            if ((event as any).retrieval_meta) {
+              retrievalMeta = (event as any).retrieval_meta;
+              const meta = (event as any).retrieval_meta as Record<string, unknown>;
+              if (meta?.latency_ms) {
+                const lat = meta.latency_ms as Record<string, number>;
+                diagnostics = {
+                  ...diagnostics,
+                  embedding_ms: lat.embedding_ms ?? diagnostics?.embedding_ms ?? 0,
+                  vector_ms: lat.vector_ms ?? diagnostics?.vector_ms ?? 0,
+                  bm25_ms: lat.bm25_ms ?? diagnostics?.bm25_ms ?? 0,
+                  fusion_ms: lat.fusion_ms ?? diagnostics?.fusion_ms ?? 0,
+                  rerank_ms: lat.rerank_ms ?? diagnostics?.rerank_ms ?? 0,
+                  total_ms: lat.total_ms ?? diagnostics?.total_ms ?? 0,
+                };
+                setLastDiagnostics(diagnostics);
+              }
+            }
             setActiveSession((prev) => ({
               ...prev,
               id: event.session_id as number,
-              title: prev?.title || `Chat ${new Date().toLocaleDateString()}`,
+              title: (event as any).session_title || prev?.title || `Chat ${new Date().toLocaleDateString()}`,
+              document_name: (event as any).document_name || prev?.document_name,
+              document_ids: (event as any).document_ids || prev?.document_ids,
             } as SessionSummary));
           }
         },
-        abortRef.current.signal
+        abortRef.current.signal,
+        conversationHistory || undefined
       );
 
       updateAssistant({
@@ -325,7 +362,9 @@ function AppShell() {
       });
       await refreshSessionList();
     } catch (err) {
-      if ((err as Error).name !== "AbortError") {
+      if ((err as Error).name === "AbortError") {
+        updateAssistant({ content: fullAnswer, isStreaming: false });
+      } else if (err instanceof StreamingUnavailableError) {
         try {
           const result = await apiSendMessage(token, text, activeSession?.id, {
             showDiagnostics,
@@ -347,10 +386,20 @@ function AppShell() {
             isStreaming: false,
           });
           if (result.diagnostics) setLastDiagnostics(result.diagnostics);
-        } catch {
-          setError("Unable to send message.");
-          setMessages((prev) => prev.slice(0, -2));
+          await refreshSessionList();
+        } catch (fallbackError) {
+          setError(fallbackError instanceof Error ? fallbackError.message : "Unable to send message.");
+          updateAssistant({
+            content: fullAnswer || "The message could not be sent. Please try again.",
+            isStreaming: false,
+          });
         }
+      } else {
+        setError(err instanceof Error ? err.message : "Unable to complete the response.");
+        updateAssistant({
+          content: fullAnswer || "The response was interrupted. Your message is still here; you can retry.",
+          isStreaming: false,
+        });
       }
     } finally {
       setStreaming(false);
@@ -366,15 +415,15 @@ function AppShell() {
 
   if (!token || !user) {
     return (
-      <div className="min-h-screen lg:h-screen bg-black text-zinc-100 flex items-center justify-start p-6 md:p-12 lg:p-16 xl:p-20 relative overflow-y-auto lg:overflow-hidden select-none" id="landing-container">
+      <div className="min-h-screen lg:h-screen bg-black text-zinc-100 flex items-center justify-start p-6 md:p-10 lg:px-0 lg:py-12 relative overflow-y-auto lg:overflow-hidden select-none" id="landing-container">
         {/* Subtle background glow */}
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_60%_60%_at_20%_30%,rgba(255,122,0,0.05),transparent)] pointer-events-none" />
         <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-zinc-800 to-transparent" />
 
-        <div className="w-full max-w-7xl flex flex-col lg:flex-row items-center justify-between gap-12 lg:gap-24 xl:gap-28 relative z-10">
+        <div className="w-full grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,720px)_minmax(0,1fr)_minmax(260px,500px)_minmax(0,1fr)] items-center gap-y-12 relative z-10">
           
           {/* LEFT CONTENT: BRAND EXPERIENCE */}
-          <div className="flex-1 space-y-6 lg:space-y-8 max-w-2xl lg:max-w-[640px] xl:max-w-[680px] w-full">
+          <div className="w-full space-y-6 lg:space-y-8 lg:col-start-2">
             {/* Top Logo and Header */}
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-orange-500 to-amber-400 flex items-center justify-center font-black text-black text-lg shadow-lg shadow-orange-500/10">
@@ -398,10 +447,10 @@ function AppShell() {
                   Enterprise Document Intelligence
                 </span>
               </div>
-              <h1 className="text-2xl sm:text-3xl lg:text-4xl font-black tracking-tight text-white font-sans leading-tight">
+              <h1 className="text-3xl sm:text-4xl lg:text-5xl xl:text-[4rem] font-black tracking-tight text-white font-sans leading-[0.95]">
                 Analyze documents with <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-400 to-amber-300">absolute precision</span>.
               </h1>
-              <p className="text-xs lg:text-sm text-zinc-400 leading-relaxed font-sans font-normal">
+              <p className="text-sm lg:text-base text-zinc-400 leading-relaxed font-sans font-normal max-w-[680px]">
                 An advanced cognitive exploration workbench. Tuned with hybrid vector-keyword semantic indexers, neural rerankers, and deep citation analysis.
               </p>
             </div>
@@ -454,8 +503,8 @@ function AppShell() {
           </div>
 
           {/* RIGHT PANE: SECURE ENTRY INTERFACE */}
-          <div className="w-full lg:w-auto flex justify-center lg:justify-end shrink-0 pt-6 lg:pt-0 lg:ml-28 xl:ml-40 2xl:ml-48">
-            <div className="relative w-full max-w-md">
+          <div className="w-full flex justify-center items-center lg:col-start-4">
+            <div className="relative w-full max-w-[500px]">
               {/* Subtle background glow behind the form */}
               <div className="absolute -inset-4 bg-gradient-to-r from-orange-500/5 to-amber-500/5 rounded-2xl blur-2xl pointer-events-none" />
               <AuthPanel onLogin={handleLogin} onRegister={handleRegister} loading={loading} error={error} />
@@ -614,10 +663,11 @@ function AppShell() {
             element={
               <div className="flex flex-col flex-1 min-h-0">
                 <header className="page-header mb-6">
-                  <h1 className="text-2xl font-bold font-sans tracking-tight text-white">{activeSession?.title || "Ask anything"}</h1>
+                  <h1 className="text-3xl font-bold font-sans tracking-tight text-white">{activeSession?.title || "Ask anything"}</h1>
                 </header>
                 <ChatPanel
                   messages={messages}
+                  activeSession={activeSession}
                   onSend={handleSendMessage}
                   onStop={handleStop}
                   loading={loading}

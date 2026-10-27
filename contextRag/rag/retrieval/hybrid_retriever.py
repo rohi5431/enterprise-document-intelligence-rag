@@ -1,8 +1,9 @@
 """
 Hybrid Retriever
 =================
-Combines :class:`~rag.retrieval.vector_retriever.VectorRetriever` and
-:class:`~rag.retrieval.bm25_retriever.BM25Retriever` using either:
+Combines :class:`~rag.retrieval.vector_retriever.VectorRetriever`,
+:class:`~rag.retrieval.bm25_retriever.BM25Retriever`, and
+:class:`~rag.retrieval.graph_retriever.GraphRetriever` using either:
 
 * **Reciprocal Rank Fusion (RRF)** — the default; parameter-free and robust.
 * **Linear combination** — weighted sum of normalised scores.
@@ -20,7 +21,7 @@ from collections import defaultdict
 from typing import Dict, List, Optional, Tuple
 
 from rag.retrieval.query_expander import QueryExpander
-
+from rag.retrieval.graph_retriever import GraphRetriever
 from rag.retrieval.bm25_retriever import BM25Retriever
 from rag.retrieval.schemas import (
     FusionStrategy,
@@ -37,7 +38,7 @@ logger = logging.getLogger(__name__)
 
 class HybridRetriever:
     """
-    Orchestrates dense + sparse retrieval and result fusion.
+    Orchestrates dense + sparse + graph retrieval and result fusion.
 
     Parameters
     ----------
@@ -45,6 +46,8 @@ class HybridRetriever:
         Injected :class:`VectorRetriever` instance.
     bm25_retriever:
         Injected :class:`BM25Retriever` instance.
+    graph_retriever:
+        Injected :class:`GraphRetriever` instance.
     reranker:
         Injected :class:`CrossEncoderReranker` instance.
         Only used when ``mode == HYBRID_RERANKED``.
@@ -54,15 +57,19 @@ class HybridRetriever:
         self,
         vector_retriever: Optional[VectorRetriever] = None,
         bm25_retriever: Optional[BM25Retriever] = None,
+        graph_retriever: Optional[GraphRetriever] = None,
         reranker: Optional[CrossEncoderReranker] = None,
     ) -> None:
         self._vector = vector_retriever or VectorRetriever()
         from rag.retrieval.bm25_manager import get_bm25
-
         self._bm25 = bm25_retriever or get_bm25()
+        from rag.retrieval.graph_retriever import get_graph
+        self._graph = graph_retriever or get_graph()
         print("\n===== HYBRID INIT =====")
         print("BM25 READY =", self._bm25.is_ready)
         print("BM25 CORPUS =", self._bm25.corpus_size)
+        print("GRAPH READY =", self._graph.is_ready)
+        print("GRAPH NODES =", self._graph.node_count)
         self._reranker = reranker or CrossEncoderReranker()
         self._expander = QueryExpander()
 
@@ -77,10 +84,11 @@ class HybridRetriever:
 
         Pipeline stages
         ---------------
-        1. Vector search  (if mode != BM25)
-        2. BM25 search    (if mode != VECTOR)
-        3. Score fusion   (RRF or linear)
-        4. Cross-encoder rerank  (if mode == HYBRID_RERANKED)
+        1. Vector search  (if mode != BM25, GRAPH)
+        2. BM25 search    (if mode != VECTOR, GRAPH)
+        3. Graph search   (if mode == GRAPH or HYBRID_GRAPH)
+        4. Score fusion   (RRF or linear)
+        5. Cross-encoder rerank  (if mode == HYBRID_RERANKED)
         """
         latency: Dict[str, float] = {}
         t_total = time.perf_counter()
@@ -97,12 +105,13 @@ class HybridRetriever:
             for q in request.expanded_queries:
                 print("-", q)
 
-        # ── Stage 1: Dense retrieval ───────────────────────────────────
+        # ── Stage 1: Dense retrieval ──────────────────────────────────────
         vector_chunks: List[RetrievedChunk] = []
         if request.mode in (
             RetrievalMode.VECTOR,
             RetrievalMode.HYBRID,
             RetrievalMode.HYBRID_RERANKED,
+            RetrievalMode.HYBRID_GRAPH,
         ):
             t0 = time.perf_counter()
             vector_chunks = self._vector.retrieve(request)
@@ -115,18 +124,38 @@ class HybridRetriever:
             RetrievalMode.BM25,
             RetrievalMode.HYBRID,
             RetrievalMode.HYBRID_RERANKED,
+            RetrievalMode.HYBRID_GRAPH,
         ):
             t0 = time.perf_counter()
             bm25_chunks = self._bm25.retrieve(request)
             latency["bm25_ms"] = (time.perf_counter() - t0) * 1000
             logger.debug("BM25: %d chunks", len(bm25_chunks))
 
-        # ── Stage 3: Fusion ────────────────────────────────────────────
+        # ── Stage 3: Graph retrieval ───────────────────────────────────
+        graph_chunks: List[RetrievedChunk] = []
+        if request.mode in (
+            RetrievalMode.GRAPH,
+            RetrievalMode.HYBRID_GRAPH,
+        ):
+            t0 = time.perf_counter()
+            graph_chunks = self._graph.retrieve(request)
+            latency["graph_ms"] = (time.perf_counter() - t0) * 1000
+            logger.debug("Graph: %d chunks", len(graph_chunks))
+
+        # ── Stage 4: Fusion ────────────────────────────────────────────
         t0 = time.perf_counter()
         if request.mode == RetrievalMode.VECTOR:
             fused = vector_chunks[: request.top_k]
         elif request.mode == RetrievalMode.BM25:
             fused = bm25_chunks[: request.top_k]
+        elif request.mode == RetrievalMode.GRAPH:
+            fused = graph_chunks[: request.top_k]
+        elif request.mode == RetrievalMode.HYBRID_GRAPH:
+            # Three-way RRF: vector + bm25 + graph
+            fused = self._rrf_fusion_three(
+                vector_chunks, bm25_chunks, graph_chunks,
+                request.rrf_k, request.top_k
+            )
         else:
             fused = self._fuse(
                 vector_chunks,
@@ -136,7 +165,7 @@ class HybridRetriever:
         latency["fusion_ms"] = (time.perf_counter() - t0) * 1000
         logger.debug("After fusion: %d chunks", len(fused))
 
-        # ── Stage 4: Rerank ────────────────────────────────────────────
+        # ── Stage 5: Rerank ────────────────────────────────────────────
         final_chunks: List[RetrievedChunk] = fused
         if request.mode == RetrievalMode.HYBRID_RERANKED and fused:
             t0 = time.perf_counter()
@@ -156,8 +185,6 @@ class HybridRetriever:
             len(final_chunks),
             latency["total_ms"],
         )
-        print("\n===== LATENCY =====")
-        print(latency)
         return RetrievalResult(
             query=request.query,
             expanded_queries=request.expanded_queries,
@@ -165,7 +192,8 @@ class HybridRetriever:
             mode=request.mode,
             vector_candidates=len(vector_chunks),
             bm25_candidates=len(bm25_chunks),
-            total_candidates=len(vector_chunks) + len(bm25_chunks),
+            graph_candidates=len(graph_chunks),
+            total_candidates=len(vector_chunks) + len(bm25_chunks) + len(graph_chunks),
             chunks_after_fusion=len(fused),
             chunks_after_rerank=len(final_chunks),
             latency_ms=latency,
@@ -226,6 +254,49 @@ class HybridRetriever:
             c = chunk_map[cid]
             c.score = rrf          # overwrite with fusion score
             c.retriever_source = "hybrid"
+            fused.append(c)
+            if len(fused) >= top_k:
+                break
+
+        return fused
+
+    @staticmethod
+    def _rrf_fusion_three(
+        vector_chunks: List[RetrievedChunk],
+        bm25_chunks: List[RetrievedChunk],
+        graph_chunks: List[RetrievedChunk],
+        k: int,
+        top_k: int,
+    ) -> List[RetrievedChunk]:
+        """
+        Three-way Reciprocal Rank Fusion: vector + BM25 + graph.
+        """
+        rrf_scores: Dict[str, float] = defaultdict(float)
+        chunk_map: Dict[str, RetrievedChunk] = {}
+
+        for rank, chunk in enumerate(vector_chunks, start=1):
+            rrf_scores[chunk.chunk_id] += 1.0 / (k + rank)
+            chunk_map[chunk.chunk_id] = chunk
+
+        for rank, chunk in enumerate(bm25_chunks, start=1):
+            rrf_scores[chunk.chunk_id] += 1.0 / (k + rank)
+            if chunk.chunk_id not in chunk_map:
+                chunk_map[chunk.chunk_id] = chunk
+            else:
+                chunk_map[chunk.chunk_id].bm25_score = chunk.bm25_score
+
+        for rank, chunk in enumerate(graph_chunks, start=1):
+            rrf_scores[chunk.chunk_id] += 1.0 / (k + rank)
+            if chunk.chunk_id not in chunk_map:
+                chunk_map[chunk.chunk_id] = chunk
+            else:
+                chunk_map[chunk.chunk_id].graph_score = chunk.graph_score
+
+        fused: List[RetrievedChunk] = []
+        for cid, rrf in sorted(rrf_scores.items(), key=lambda x: x[1], reverse=True):
+            c = chunk_map[cid]
+            c.score = rrf
+            c.retriever_source = "hybrid_graph"
             fused.append(c)
             if len(fused) >= top_k:
                 break

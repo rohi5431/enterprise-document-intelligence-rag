@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Trash2, MoreVertical, Edit2, Check, X } from "lucide-react";
+import { Trash2, MoreVertical, Edit2, Check, X, ChevronDown } from "lucide-react";
 import type { SessionSummary } from "../types";
 
 type SessionSidebarProps = {
@@ -9,6 +9,35 @@ type SessionSidebarProps = {
   onDelete?: (sessionId: number) => Promise<void>;
   onRename?: (sessionId: number, newTitle: string) => Promise<void>;
 };
+
+function formatSidebarTitle(session: SessionSummary): string {
+  if (!session.title && !session.document_name) return `Chat ${session.id}`;
+  let t = session.title || session.document_name || "";
+  // Strip "Ask About " if present
+  if (t.toLowerCase().startsWith("ask about ")) {
+    t = t.slice(10);
+  }
+  // Strip file extension
+  t = t.replace(/\.[a-zA-Z0-9]+$/, "");
+  // Replace hyphens and underscores
+  t = t.replace(/[-_]+/g, " ");
+  // Strip conversational query prefixes like "Give me the", "What is", etc.
+  t = t.replace(/^(give\s+me(\s+the)?|tell\s+me(\s+about)?|what\s+is(\s+the)?|how\s+to|show\s+me(\s+the)?|can\s+you|please)\s+/i, "");
+  // Strip long hex/numeric hashes and timestamps
+  t = t.replace(/\b[0-9a-f]{6,}\b/gi, "").replace(/\b\d{4}\s+\d{2}\s+\d{2}\b/g, "").replace(/\bCreated\b/gi, "").trim();
+  
+  if (!t || t.length < 2) {
+    t = session.document_name ? session.document_name.replace(/\.[^/.]+$/, "").replace(/[-_]+/g, " ") : "Document Chat";
+  }
+
+  // Capitalize words into Title Case
+  return t
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 4)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+    .join(" ");
+}
 
 export function SessionSidebar({
   sessions,
@@ -43,11 +72,12 @@ export function SessionSidebar({
 
   return (
     <div className="session-sidebar-wrapper flex flex-col flex-1 min-h-0 overflow-hidden" id="session-sidebar-wrapper">
-      <div className="session-list-header flex justify-between items-center mb-1.5">
-        <div className="session-list-heading text-[10px] font-extrabold uppercase tracking-wider text-zinc-500">
-          Chat History
+      <div className="session-list-header flex justify-between items-center mb-2 px-1">
+        <div className="flex items-center gap-1.5 text-xs font-semibold text-zinc-400 select-none cursor-pointer hover:text-zinc-200 transition">
+          <span>Recents</span>
+          <ChevronDown className="w-3.5 h-3.5 text-zinc-500" />
         </div>
-        <div className="session-count px-1.5 py-0.5 rounded-full bg-orange-500/10 text-orange-400 text-[10px] font-mono font-bold">
+        <div className="session-count px-1.5 py-0.5 rounded-full bg-zinc-900 border border-zinc-800 text-zinc-400 text-[10px] font-mono">
           {sessions.length}
         </div>
       </div>
@@ -69,10 +99,10 @@ export function SessionSidebar({
           filteredSessions.map((session) => (
             <div
               key={session.id}
-              className={`session-item group w-full !flex !flex-row !items-center !justify-between !p-2.5 !gap-3 rounded-lg border transition-all duration-150 ${
+              className={`session-item group w-full flex items-center justify-between px-3 py-2 rounded-xl transition-all duration-150 cursor-pointer ${
                 session.id === activeSessionId
-                  ? "border-orange-500/30 bg-orange-500/5 active-session"
-                  : "border-transparent bg-zinc-900/20 hover:bg-zinc-900/50"
+                  ? "bg-zinc-800 text-white font-medium shadow-sm"
+                  : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/60"
               }`}
               id={`session-item-container-${session.id}`}
             >
@@ -148,17 +178,13 @@ export function SessionSidebar({
               ) : (
                 <>
                   <button
-                    className="flex-1 text-left min-w-0"
+                    className="flex-1 text-left min-w-0 pr-1 cursor-pointer"
                     onClick={() => onSelect(session)}
                     type="button"
                     id={`session-item-btn-${session.id}`}
                   >
-                    <div className="session-name font-bold text-xs text-zinc-200 truncate flex items-center gap-1.5">
-                      <span className="shrink-0 text-zinc-500 text-[10px]">💬</span>
-                      <span className="truncate">{session.title || `Session ${session.id}`}</span>
-                    </div>
-                    <div className="session-meta text-[10px] text-zinc-500 mt-0.5 font-mono">
-                      {session.message_count} message{session.message_count !== 1 ? "s" : ""}
+                    <div className="truncate text-xs" title={session.title || session.document_name}>
+                      {formatSidebarTitle(session)}
                     </div>
                   </button>
 
@@ -169,7 +195,9 @@ export function SessionSidebar({
                         e.stopPropagation();
                         setMenuOpenId(menuOpenId === session.id ? null : session.id);
                       }}
-                      className="p-1 rounded-md text-zinc-500 hover:text-zinc-200 hover:bg-zinc-800 transition-all ml-1 shrink-0 opacity-60 group-hover:opacity-100 focus:opacity-100"
+                      className={`p-1 rounded-md text-zinc-400 hover:text-zinc-100 hover:bg-zinc-700/60 transition-all ml-1 shrink-0 ${
+                        menuOpenId === session.id ? "opacity-100" : "opacity-0 group-hover:opacity-100 focus:opacity-100"
+                      }`}
                       title="Chat Options"
                       id={`session-menu-btn-${session.id}`}
                     >

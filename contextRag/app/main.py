@@ -17,6 +17,7 @@ from app.core.logger import get_logger, setup_logging
 from app.db.base import Base
 from app.db.session import engine
 from rag.retrieval.bm25_manager import get_bm25
+from rag.retrieval.graph_retriever import get_graph
 from app.db.session import SessionLocal
 from sqlalchemy.orm import Session
 from app.models.chunk import Chunk
@@ -66,6 +67,19 @@ async def lifespan(app: FastAPI) -> AsyncGenerator:
             bm25.build_index(bm25_chunks)
 
         logger.info("BM25 startup: ready=%s corpus=%d", bm25.is_ready, bm25.corpus_size)
+
+        # ── Graph index ────────────────────────────────────────────────
+        try:
+            graph = get_graph()
+            if bm25_chunks:
+                graph.build_index(bm25_chunks)
+            logger.info(
+                "Graph startup: ready=%s nodes=%d edges=%d",
+                graph.is_ready, graph.node_count, graph.edge_count,
+            )
+        except Exception as ge:
+            logger.warning("Graph startup error: %s", ge)
+
         db.close()
     except Exception as e:
         logger.warning("BM25 startup error: %s", e)

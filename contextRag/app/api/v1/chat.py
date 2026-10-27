@@ -41,22 +41,70 @@ def _build_filters(req: ChatRequest, user_id: int) -> MetadataFilter:
     return filters
 
 
-def _build_citations(sources: list) -> list[CitationResponse]:
-    return [
-        CitationResponse(
+import base64
+import os
+
+_IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp", ".tiff", ".tif"}
+_IMAGE_MIME = {
+    ".jpg": "image/jpeg", ".jpeg": "image/jpeg",
+    ".png": "image/png", ".gif": "image/gif",
+    ".bmp": "image/bmp", ".webp": "image/webp",
+    ".tiff": "image/tiff", ".tif": "image/tiff",
+}
+
+
+def _embed_image(file_path: str | None, filename: str | None) -> str | None:
+    """Try to read an image file and return a base64 data-URL, or None."""
+    try:
+        if not file_path or not os.path.exists(file_path):
+            return None
+        ext = os.path.splitext(filename or file_path)[1].lower()
+        if ext not in _IMAGE_EXTS:
+            return None
+        with open(file_path, "rb") as f:
+            data = f.read()
+        mime = _IMAGE_MIME.get(ext, "image/png")
+        return f"data:{mime};base64,{base64.b64encode(data).decode()}"
+    except Exception:
+        return None
+
+
+def _build_citations(sources: list, db: Session | None = None) -> list[CitationResponse]:
+    from app.models.document import Document as DocModel  # avoid circular import
+    citations = []
+    for s in sources:
+        doc_id = s.get("doc_id", 0)
+        filename = s.get("doc_filename") or ""
+        ext = os.path.splitext(filename)[1].lower().lstrip(".")
+
+        # Try to load image from DB document record
+        image_b64: str | None = None
+        file_path: str | None = None
+        if db and doc_id:
+            try:
+                doc = db.query(DocModel).filter(DocModel.id == doc_id).first()
+                if doc:
+                    file_path = doc.file_path
+                    if ext in {e.lstrip(".") for e in _IMAGE_EXTS}:
+                        image_b64 = _embed_image(file_path, filename)
+            except Exception:
+                pass
+
+        citations.append(CitationResponse(
             citation_number=s["citation_number"],
             chunk_id=str(s.get("chunk_id", "")),
-            doc_id=s.get("doc_id", 0),
+            doc_id=doc_id,
             doc_title=s.get("doc_title"),
-            doc_filename=s.get("doc_filename"),
-            filename=s.get("doc_filename"),
+            doc_filename=filename or None,
+            filename=filename or None,
             page_number=s.get("page_number"),
             text_snippet=s.get("text_snippet", ""),
             score=s.get("score", 0.0),
             rerank_score=s.get("rerank_score"),
-        )
-        for s in sources
-    ]
+            image_base64=image_b64,
+            doc_file_type=ext or None,
+        ))
+    return citations
 
 
 @router.post("/message", response_model=ChatResponse)
@@ -207,6 +255,13 @@ def send_message_stream(
         session_id=req.session_id,
     )
     context_prefix = conv_svc.build_context_prompt(session, req.query)
+    # Merge frontend history with DB-built context (frontend takes priority as it's more recent)
+    if req.conversation_history:
+        merged_history = req.conversation_history
+        if context_prefix:
+            merged_history = context_prefix + "\n" + req.conversation_history
+    else:
+        merged_history = context_prefix
     filters = _build_filters(req, current_user.id)
     expand = req.expand_query if req.expand_query is not None else prefs.query_expansion_enabled
     pipeline = get_rag_pipeline()
@@ -222,7 +277,7 @@ def send_message_stream(
             expand_query=expand,
             llm_provider=prefs.llm_provider,
             llm_model=prefs.llm_model,
-            conversation_history=context_prefix or None,
+            conversation_history=merged_history or None,
         ):
             if event["type"] == "token":
                 full_answer += event["content"]

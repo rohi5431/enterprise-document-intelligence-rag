@@ -5,6 +5,51 @@ import { compilePrompt } from "./prompts";
 import { SessionMemory } from "./memory";
 import { cosineSimilarity, computeBm25Score } from "./retrievalUtils";
 
+/**
+ * Gives retrieval a useful English companion query for common Hindi/Hinglish
+ * phrasing even if the cloud query-rewriter is unavailable. The original query
+ * always remains first, so Hindi source documents are still searched directly.
+ */
+function localMultilingualVariants(query: string): string[] {
+  const normalized = query
+    .toLowerCase()
+    .replace(/\b(kya|ky|kaun sa|kaunsa)\b/g, " what ")
+    .replace(/\b(kaise|kaisa)\b/g, " how ")
+    .replace(/\b(batao|bataiye|samjhao|samjhaiye)\b/g, " explain ")
+    .replace(/\b(hai|hain|tha|the|ka|ki|ke|mein|me|aur)\b/g, " ")
+    .replace(/\b(chitra|diagram|aarekh|aarekha)\b/g, " diagram ")
+    .replace(/\b(architecture|vastukala)\b/g, " architecture ")
+    .replace(/\b(prakriya|process|workflow)\b/g, " workflow ")
+    .replace(/\b(paribhasha|definition)\b/g, " definition ")
+    .replace(/\b(udaharan|example)\b/g, " example ")
+    .replace(/क्या/g, " what ")
+    .replace(/कैसे/g, " how ")
+    .replace(/समझाओ|समझाइए|बताओ|बताइए/g, " explain ")
+    .replace(/आरेख|चित्र/g, " diagram ")
+    .replace(/वास्तुकला/g, " architecture ")
+    .replace(/प्रक्रिया/g, " workflow ")
+    .replace(/परिभाषा/g, " definition ")
+    .replace(/उदाहरण/g, " example ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  const variants = normalized && normalized !== query.toLowerCase() ? [normalized] : [];
+
+  // Long natural-language questions often contain instructions, politeness,
+  // and examples that dilute lexical retrieval. Add a compact keyword query
+  // while retaining the full original question for answer generation.
+  const searchTerms = normalized
+    .split(/\s+/)
+    .filter((term) => term.length > 2)
+    .filter((term) => !new Set([
+      "please", "could", "would", "should", "about", "from", "this", "that", "with", "have", "give", "make", "tell", "show", "need", "want", "question", "answer", "document", "image", "text", "table", "into", "your", "their", "then", "also", "more", "some", "what", "how", "explain",
+    ]).has(term));
+  const compact = Array.from(new Set(searchTerms)).slice(0, 12).join(" ");
+  if (compact && compact !== normalized) variants.push(compact);
+
+  return Array.from(new Set(variants));
+}
+
 export interface AgentState {
   userId: number;
   tenantId: string;
@@ -14,12 +59,15 @@ export interface AgentState {
   rewrittenQuery?: string;
   multiQueries: string[];
   sessionId?: number | null;
+  documentIds?: number[];
+  activeDocumentId?: number | null;
   template?: string;
   filters?: {
     department?: string;
     tags?: string[];
     document_type?: string;
     security_level?: string;
+    document_ids?: number[];
   };
 
   // Pipeline Data
@@ -66,12 +114,34 @@ export interface AgentState {
 }
 
 export class AgentWorkflow {
+  // Avoid repeatedly calling Gemini after its daily/request quota reports a
+  // retry window. Retrieval then continues with local lexical search.
+  private static geminiUnavailableUntil = 0;
   private ai: GoogleGenAI | null;
   private db: any;
+  private vectorSearch?: (vector: number[], userId: number, documentIds?: number[]) => Promise<Array<{ chunkId: string; score: number }>>;
 
-  constructor(ai: GoogleGenAI | null, db: any) {
+  constructor(
+    ai: GoogleGenAI | null,
+    db: any,
+    vectorSearch?: (vector: number[], userId: number, documentIds?: number[]) => Promise<Array<{ chunkId: string; score: number }>>,
+  ) {
     this.ai = ai;
     this.db = db;
+    this.vectorSearch = vectorSearch;
+  }
+
+  private canUseGemini(): boolean {
+    return Boolean(this.ai) && Date.now() >= AgentWorkflow.geminiUnavailableUntil;
+  }
+
+  private recordGeminiFailure(error: unknown): void {
+    const message = error instanceof Error ? error.message : String(error);
+    if (/RESOURCE_EXHAUSTED|quota exceeded|free_tier_requests|429/i.test(message)) {
+      const seconds = Number(message.match(/retryDelay[^\d]*(\d+)s/i)?.[1] || 900);
+      AgentWorkflow.geminiUnavailableUntil = Date.now() + Math.max(60, seconds) * 1000;
+      console.warn(`Gemini quota reached; skipping optional Gemini workflow calls for ${Math.ceil(seconds / 60)} minutes.`);
+    }
   }
 
   /**
@@ -92,7 +162,7 @@ export class AgentWorkflow {
       retrievedChunks: [],
       rerankedChunks: [],
       citations: [],
-      selectedModel: "gemini-3.5-flash",
+      selectedModel: process.env.GEMINI_MODEL?.trim() || "gemini-3.8-flash",
       modelRoutingReason: "Default model baseline",
       costEstimate: 0,
       answer: "",
@@ -183,18 +253,18 @@ export class AgentWorkflow {
   private async queryRewriterNode(state: AgentState): Promise<AgentState> {
     const start = Date.now();
     let rewritten = state.query;
-    const variants: string[] = [state.query];
+    const variants: string[] = [state.query, ...localMultilingualVariants(state.query)];
 
     const prefs = this.db.user_prefs?.[state.userId] || { query_expansion_enabled: false };
     const rewriteEnabled = state.queryRewritingEnabled !== false;
     const expansionEnabled = state.queryExpansionEnabled ?? prefs.query_expansion_enabled;
 
-    if (this.ai) {
+    if (this.canUseGemini()) {
       try {
         // Query rewriting
         if (rewriteEnabled) {
           const rewriteRes = await this.ai.models.generateContent({
-            model: "gemini-3.5-flash",
+            model: process.env.GEMINI_MODEL?.trim() || "gemini-3.8-flash",
             contents: `You are an expert search engineer. Rewrite this user question to optimize it for vector search and keyword indices. Output ONLY the rewritten search query, do not explain or add commentary. Question: ${state.query}`,
           });
           if (rewriteRes.text) {
@@ -206,13 +276,14 @@ export class AgentWorkflow {
         // Multi Query generation (expand to 3 variants total)
         if (expansionEnabled) {
           const multiRes = await this.ai.models.generateContent({
-            model: "gemini-3.5-flash",
+            model: process.env.GEMINI_MODEL?.trim() || "gemini-3.8-flash",
             contents: `Generate exactly 2 diverse search query variants (one per line) for this prompt to optimize RAG retrieval recall. Do not include numbered bullets. Prompt: ${state.query}`,
           });
           const lines = multiRes.text?.split("\n").map((l) => l.trim().replace(/^[-*0-9.]\s*/, "")).filter((l) => l.length > 3) || [];
           variants.push(...lines);
         }
       } catch (err) {
+        this.recordGeminiFailure(err);
         console.warn("Query rewriter failed, falling back to original query", err);
       }
     }
@@ -228,12 +299,45 @@ export class AgentWorkflow {
   private async retrieverNode(state: AgentState): Promise<AgentState> {
     const start = Date.now();
     
+    // 1. Determine target document scope (session scope or explicitly requested documents)
+    let targetDocIds: number[] = [];
+    if (state.documentIds && state.documentIds.length > 0) {
+      targetDocIds = state.documentIds;
+    } else if (state.filters?.document_ids && state.filters.document_ids.length > 0) {
+      targetDocIds = state.filters.document_ids;
+    } else if (state.activeDocumentId) {
+      targetDocIds = [state.activeDocumentId];
+    } else if (state.sessionId) {
+      const session = this.db.sessions?.find((s: any) => s.id === state.sessionId);
+      if (session?.document_ids && session.document_ids.length > 0) {
+        targetDocIds = session.document_ids;
+      }
+    }
+
     // Retrieve documents owned by user / tenant boundary
-    const userDocIds = new Set(
-      this.db.documents
-        .filter((d: any) => d.user_id === state.userId && (!state.filters?.department || d.department === state.filters.department))
-        .map((d: any) => d.id)
-    );
+    let userDocIds: Set<number>;
+    if (targetDocIds.length > 0) {
+      // Strictly scope to the active document(s) for this chat/session to avoid fetching wrong previous docs!
+      userDocIds = new Set(
+        this.db.documents
+          .filter((d: any) => d.user_id === state.userId && targetDocIds.includes(d.id))
+          .map((d: any) => d.id)
+      );
+      // Fallback: If filtered set is empty, use all user docs
+      if (userDocIds.size === 0) {
+        userDocIds = new Set(
+          this.db.documents
+            .filter((d: any) => d.user_id === state.userId && (!state.filters?.department || d.department === state.filters.department))
+            .map((d: any) => d.id)
+        );
+      }
+    } else {
+      userDocIds = new Set(
+        this.db.documents
+          .filter((d: any) => d.user_id === state.userId && (!state.filters?.department || d.department === state.filters.department))
+          .map((d: any) => d.id)
+      );
+    }
 
     const userChunks = this.db.chunks.filter((c: any) => userDocIds.has(c.doc_id));
     const candidatesMap = new Map<string, { chunk: any; vectorScore: number; bm25Score: number }>();
@@ -241,23 +345,39 @@ export class AgentWorkflow {
     // Embed all multi-query variants
     const queryVectors = await Promise.all(
       state.multiQueries.map(async (q) => {
-        if (!this.ai) return null;
+        if (!this.canUseGemini()) return null;
         try {
           const res = await this.ai.models.embedContent({
-            model: "gemini-embedding-2-preview",
+            model: "gemini-embedding-001",
             contents: q,
           });
-          return (res as any).embedding?.values || null;
-        } catch {
+          return (res as any).embeddings?.[0]?.values || (res as any).embedding?.values || null;
+        } catch (error) {
+          this.recordGeminiFailure(error);
           return null;
         }
       })
     );
 
-    // Compute hybrid relevance (Semantic + Lexical BM25) for each chunk
+    // Ask Qdrant first when it is connected.  Local vectors remain a safe
+    // fallback so a transient vector-service issue cannot take search down.
+    const qdrantScores = new Map<string, number>();
+    if (this.vectorSearch) {
+      const firstVector = queryVectors.find((vector): vector is number[] => Array.isArray(vector) && vector.length > 0);
+      if (firstVector) {
+        try {
+          const matches = await this.vectorSearch(firstVector, state.userId, targetDocIds.length ? targetDocIds : undefined);
+          matches.forEach((match) => qdrantScores.set(match.chunkId, match.score));
+        } catch (error) {
+          console.warn("Qdrant retrieval failed; falling back to local vectors", error);
+        }
+      }
+    }
+
+    // Compute hybrid relevance (Qdrant/local semantic + lexical BM25) for each chunk
     userChunks.forEach((chunk: any) => {
       // Vector Similarity
-      let maxVecScore = 0;
+      let maxVecScore = qdrantScores.get(chunk.id) || 0;
       queryVectors.forEach((qv) => {
         if (qv && chunk.embedding) {
           maxVecScore = Math.max(maxVecScore, cosineSimilarity(qv, chunk.embedding));
@@ -270,9 +390,14 @@ export class AgentWorkflow {
         maxBm25 = Math.max(maxBm25, computeBm25Score(chunk.text, q));
       });
 
-      if (maxVecScore >= 0 || maxBm25 >= 0) {
-        candidatesMap.set(chunk.id, { chunk, vectorScore: maxVecScore, bm25Score: maxBm25 });
+      // Keep a modest lexical boost for an active document, but never give
+      // every chunk a fabricated semantic score. Doing so previously pushed
+      // irrelevant content into context and caused false "not found" answers.
+      if (targetDocIds.length > 0 && targetDocIds.includes(chunk.doc_id)) {
+        maxBm25 = maxBm25 * 1.35;
       }
+
+      candidatesMap.set(chunk.id, { chunk, vectorScore: maxVecScore, bm25Score: maxBm25 });
     });
 
     const candidatesList = Array.from(candidatesMap.values());
@@ -290,7 +415,10 @@ export class AgentWorkflow {
     const fusedList = candidatesList.map((item) => {
       const vr = vecRanks.get(item.chunk.id) || 100;
       const br = bmRanks.get(item.chunk.id) || 100;
-      const rrf = hybridEnabled ? (1 / (60 + vr) + 1 / (60 + br)) : (1 / (60 + vr));
+      // High bonus for actual matching content over empty rank-fillers
+      const hasMatch = item.bm25Score > 0 || item.vectorScore > 0.4;
+      const matchBonus = hasMatch ? 2.0 : 0;
+      const rrf = (hybridEnabled ? (1 / (60 + vr) + 1 / (60 + br)) : (1 / (60 + vr))) + matchBonus;
       return { ...item, rrf };
     });
 
@@ -331,12 +459,12 @@ export class AgentWorkflow {
 
     const rerankEnabled = state.rerankingEnabled !== false;
 
-    if (rerankEnabled && this.ai && topChunks.length > 1) {
+    if (rerankEnabled && this.canUseGemini() && topChunks.length > 1) {
       try {
         // High fidelity Reranking utilizing Gemini 3.5 Flash
         const items = topChunks.map((item, idx) => `[ID: ${idx}] ${item.chunk.text}`).join("\n\n");
         const reRankResponse = await this.ai.models.generateContent({
-          model: "gemini-3.5-flash",
+          model: process.env.GEMINI_MODEL?.trim() || "gemini-3.8-flash",
           contents: `You are an expert search re-ranker. Order the following document snippets by their relevance to this user search query: "${state.query}".
           
 snippets:
@@ -364,6 +492,7 @@ Output a JSON array of index integers sorted from most relevant to least relevan
           topChunks = reordered;
         }
       } catch (err) {
+        this.recordGeminiFailure(err);
         console.warn("Gemini reranker error, falling back to RRF rankings:", err);
       }
     }
@@ -380,7 +509,13 @@ Output a JSON array of index integers sorted from most relevant to least relevan
     
     // Load standard prompt
     const promptTemplate = this.db.prompts?.find((p: any) => p.is_active)?.template_text || 
-      `Answer the query using ONLY these source contexts. Cite references with bracketed numbers corresponding to the source number, like [1], [2]. If the sources do not contain the answer, say "Answer not found in documents."
+      `You are an expert AI assistant providing answers grounded in the provided document sources.
+Instructions:
+1. Answer the user's query thoroughly using the provided source contexts. Understand Hindi, English, and Hinglish (a Hindi-English mix); answer in the user's preferred language when possible.
+2. If the user asks for all content, full text, summary, credentials, or an overview of the file, provide the full details and content present in the source contexts.
+3. Cite references with bracketed numbers corresponding to the source number, like [1], [2].
+4. Do not say "Answer not found in documents" merely because wording differs. First use related terms, source headings, diagrams, and context to provide the best grounded answer. Say it only when the sources truly contain no supporting information.
+
 Context sources:
 {{context}}
 
@@ -412,7 +547,7 @@ User Query: {{query}}`;
     
     if (state.selectedModel && state.selectedModel !== "Auto") {
       state.modelRoutingReason = `Manual user override: ${state.selectedModel}`;
-      state.costEstimate = state.selectedModel === "gemini-3.1-pro-preview" ? 0.00015 : 0.00003;
+      state.costEstimate = state.selectedModel === "gemini-2.5-pro" ? 0.00015 : 0.00003;
       return state;
     }
 

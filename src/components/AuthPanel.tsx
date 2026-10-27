@@ -71,21 +71,21 @@ export function AuthPanel({
   };
 
   return (
-    <div className="auth-card !p-5 sm:!p-6 !rounded-xl max-w-[440px] w-full border border-zinc-900 bg-zinc-950/40 backdrop-blur-md shadow-xl" id="auth-panel-card">
+    <div className="auth-card !p-6 sm:!p-7 !rounded-2xl max-w-[500px] w-full border border-zinc-900 bg-zinc-950/40 backdrop-blur-md shadow-xl" id="auth-panel-card">
       <div className="auth-header !mb-2.5 !pb-2.5 border-b border-zinc-900/60 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
         <div>
           <p className="eyebrow !mb-0 text-[8px] tracking-wider text-orange-400 uppercase font-mono font-extrabold">RAG AI Portal</p>
-          <h1 className="font-sans font-extrabold tracking-tight text-white text-sm">
+          <h1 className="font-sans font-extrabold tracking-tight text-white text-base sm:text-lg">
             {mode === "login" ? "Welcome Back" : "Create Account"}
           </h1>
-          <p className="brand-subtitle font-sans text-[9px] text-zinc-500 mt-0.5">
+          <p className="brand-subtitle font-sans text-[10px] text-zinc-500 mt-0.5">
             Chat with your documents.
           </p>
         </div>
 
         <div className="auth-toggle !p-0.5 !gap-0.5 text-[10px] shrink-0 self-start sm:self-center" role="tablist">
           <button
-            className={`!py-0.5 !px-2 text-[10px] rounded-full ${mode === "login" ? "active" : ""}`}
+            className={`!py-0.5 !px-2.5 text-[10px] rounded-full ${mode === "login" ? "active" : ""}`}
             onClick={() => switchMode("login")}
             type="button"
             disabled={loading}
@@ -94,7 +94,7 @@ export function AuthPanel({
             Sign in
           </button>
           <button
-            className={`!py-0.5 !px-2 text-[10px] rounded-full ${mode === "register" ? "active" : ""}`}
+            className={`!py-0.5 !px-2.5 text-[10px] rounded-full ${mode === "register" ? "active" : ""}`}
             onClick={() => switchMode("register")}
             type="button"
             disabled={loading}
@@ -105,7 +105,7 @@ export function AuthPanel({
         </div>
       </div>
 
-      <form className="auth-form !gap-2" onSubmit={submit}>
+      <form className="auth-form !gap-3" onSubmit={submit}>
         <label className="font-sans text-[9px] font-bold tracking-wider text-zinc-500 block uppercase">
           Email
           <input
@@ -116,7 +116,7 @@ export function AuthPanel({
             placeholder="you@example.com"
             autoComplete="email"
             required
-            className="w-full mt-1 px-2.5 py-1.5 text-[11px] bg-zinc-950/60 border border-zinc-900/80 rounded-md text-white focus:outline-none focus:ring-1 focus:ring-orange-500/60 focus:border-orange-500 placeholder:text-zinc-600 font-sans"
+            className="w-full mt-1 px-3 py-2.5 text-[12px] bg-zinc-950/60 border border-zinc-900/80 rounded-md text-white focus:outline-none focus:ring-1 focus:ring-orange-500/60 focus:border-orange-500 placeholder:text-zinc-600 font-sans"
             id="auth-email-input"
           />
         </label>
@@ -132,7 +132,7 @@ export function AuthPanel({
               placeholder="Your name"
               autoComplete="name"
               required
-              className="w-full mt-1 px-2.5 py-1.5 text-[11px] bg-zinc-950/60 border border-zinc-900/80 rounded-md text-white focus:outline-none focus:ring-1 focus:ring-orange-500/60 focus:border-orange-500 placeholder:text-zinc-600 font-sans"
+              className="w-full mt-1 px-3 py-2.5 text-[12px] bg-zinc-950/60 border border-zinc-900/80 rounded-md text-white focus:outline-none focus:ring-1 focus:ring-orange-500/60 focus:border-orange-500 placeholder:text-zinc-600 font-sans"
               id="auth-fullname-input"
             />
           </label>
@@ -150,7 +150,7 @@ export function AuthPanel({
               minLength={mode === "register" ? 4 : undefined}
               autoComplete={mode === "login" ? "current-password" : "new-password"}
               required
-              className="w-full px-2.5 py-1.5 text-[11px] bg-zinc-950/60 border border-zinc-900/80 rounded-md text-white focus:outline-none focus:ring-1 focus:ring-orange-500/60 focus:border-orange-500 placeholder:text-zinc-600 pr-12"
+              className="w-full px-3 py-2.5 text-[12px] bg-zinc-950/60 border border-zinc-900/80 rounded-md text-white focus:outline-none focus:ring-1 focus:ring-orange-500/60 focus:border-orange-500 placeholder:text-zinc-600 pr-12"
               id="auth-password-input"
             />
             <button
@@ -177,7 +177,7 @@ export function AuthPanel({
               minLength={mode === "register" ? 4 : undefined}
               autoComplete="new-password"
               required
-              className="w-full mt-1 px-2.5 py-1.5 text-[11px] bg-zinc-950/60 border border-zinc-900/80 rounded-md text-white focus:outline-none focus:ring-1 focus:ring-orange-500/60 focus:border-orange-500 placeholder:text-zinc-600"
+              className="w-full mt-1 px-3 py-2.5 text-[12px] bg-zinc-950/60 border border-zinc-900/80 rounded-md text-white focus:outline-none focus:ring-1 focus:ring-orange-500/60 focus:border-orange-500 placeholder:text-zinc-600"
               id="auth-confirm-password-input"
             />
           </label>
@@ -196,7 +196,7 @@ export function AuthPanel({
         )}
 
         <button
-          className="w-full mt-1.5 font-sans font-bold py-2.5 bg-gradient-to-r from-orange-500 to-amber-500 text-black rounded-md cursor-pointer text-xs uppercase tracking-wider hover:brightness-110 active:scale-[0.98] transition-all disabled:opacity-50 shadow-lg shadow-orange-500/10"
+          className="w-full mt-1.5 font-sans font-bold py-3 bg-gradient-to-r from-orange-500 to-amber-500 text-black rounded-md cursor-pointer text-sm uppercase tracking-wider hover:brightness-110 active:scale-[0.98] transition-all disabled:opacity-50 shadow-lg shadow-orange-500/10"
           type="submit"
           disabled={loading}
           id="auth-submit-btn"

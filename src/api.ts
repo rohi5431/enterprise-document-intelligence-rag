@@ -1,6 +1,7 @@
 import type {
   ChatResponse,
   ChunkPreview,
+  AdminApiKeyStatus,
   DocumentSummary,
   PlatformStats,
   SemanticSearchResult,
@@ -12,6 +13,13 @@ import type {
 } from "./types";
 
 const API_BASE_URL = "/api/v1";
+
+export class StreamingUnavailableError extends Error {
+  constructor() {
+    super("Streaming is not available for this server.");
+    this.name = "StreamingUnavailableError";
+  }
+}
 
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const headers: Record<string, string> = {
@@ -124,6 +132,8 @@ export async function apiSendMessage(
       query_expansion: options?.queryExpansion,
       parent_child: options?.parentChild,
       guardrails: options?.guardrails,
+      document_ids: (options as any)?.documentIds || (options as any)?.document_ids,
+      document_name: (options as any)?.documentName || (options as any)?.document_name,
     }),
   });
 }
@@ -144,7 +154,8 @@ export async function apiStreamMessage(
     guardrails?: boolean;
   } | undefined,
   onEvent: (event: Record<string, unknown>) => void,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  conversationHistory?: string
 ): Promise<void> {
   const res = await fetch(`${API_BASE_URL}/chat/message/stream`, {
     method: "POST",
@@ -162,11 +173,19 @@ export async function apiStreamMessage(
       query_rewriting: options?.queryRewriting,
       query_expansion: options?.queryExpansion,
       parent_child: options?.parentChild,
-      guardrails: options?.guardrails,
+      document_ids: (options as any)?.documentIds || (options as any)?.document_ids,
+      document_name: (options as any)?.documentName || (options as any)?.document_name,
+      conversation_history: conversationHistory || undefined,
     }),
     signal,
   });
-  if (!res.ok || !res.body) throw new Error("Streaming failed");
+  if (!res.ok) {
+    if (res.status === 404 || res.status === 405) {
+      throw new StreamingUnavailableError();
+    }
+    throw new Error(`Streaming request failed (${res.status}).`);
+  }
+  if (!res.body) throw new Error("Streaming response body unavailable.");
 
   const reader = res.body.getReader();
   const decoder = new TextDecoder();
@@ -237,6 +256,30 @@ export async function apiUploadDocument(
     method: "POST",
     headers: authHeaders(token),
     body: form,
+  });
+}
+
+export async function apiImportWebPage(
+  token: string,
+  url: string,
+  title?: string,
+): Promise<DocumentSummary> {
+  return request("/documents/import-url", {
+    method: "POST",
+    headers: authHeaders(token),
+    body: JSON.stringify({ url, title }),
+  });
+}
+
+export async function apiImportText(
+  token: string,
+  text: string,
+  title?: string,
+): Promise<DocumentSummary> {
+  return request("/documents/import-text", {
+    method: "POST",
+    headers: authHeaders(token),
+    body: JSON.stringify({ text, title }),
   });
 }
 
@@ -394,4 +437,17 @@ export async function apiReindexAdminDocument(token: string, docId: number): Pro
     method: "POST",
     headers: authHeaders(token),
   });
+}
+
+// 15) System Monitoring — real service health
+export async function apiGetSystemMonitoring(token: string): Promise<any> {
+  return request("/admin/monitoring", { headers: authHeaders(token) });
+}
+
+export async function apiSyncQdrant(token: string): Promise<{ success: boolean; message: string; sync: unknown }> {
+  return request("/admin/qdrant/sync", { method: "POST", headers: authHeaders(token) });
+}
+
+export async function apiGetAdminApiKeyStatus(token: string): Promise<AdminApiKeyStatus> {
+  return request("/admin/api-key-status", { headers: authHeaders(token) });
 }

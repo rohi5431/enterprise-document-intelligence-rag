@@ -18,10 +18,12 @@ from typing import Any, Dict, List, Optional
 
 class RetrievalMode(str, Enum):
     """How to combine results from multiple retrievers."""
-    VECTOR = "vector"        # dense only
-    BM25 = "bm25"            # sparse only
-    HYBRID = "hybrid"        # vector + BM25 fused via RRF
+    VECTOR = "vector"                    # dense only
+    BM25 = "bm25"                        # sparse only
+    HYBRID = "hybrid"                    # vector + BM25 fused via RRF
     HYBRID_RERANKED = "hybrid_reranked"  # hybrid then cross-encoder rerank
+    GRAPH = "graph"                      # entity/concept graph traversal
+    HYBRID_GRAPH = "hybrid_graph"        # hybrid + graph, fused via RRF
 
 
 class FusionStrategy(str, Enum):
@@ -88,8 +90,13 @@ class RetrievalRequest:
     rrf_k: int = 60              # RRF constant (higher = smoother)
     vector_weight: float = 0.7   # used only for LINEAR fusion
     bm25_weight: float = 0.3     # used only for LINEAR fusion
+    graph_weight: float = 0.4    # used only for hybrid_graph fusion
     # ── filled by QueryExpander ──────────────────────────────────────────
     expanded_queries: List[str] = field(default_factory=list)
+    # ── filled by QueryRouter ────────────────────────────────────────────
+    router_mode: Optional[str] = None
+    router_reason: Optional[str] = None
+    router_confidence: Optional[float] = None
 
 
 @dataclass
@@ -115,7 +122,8 @@ class RetrievedChunk:
     vector_score: Optional[float] = None
     bm25_score: Optional[float] = None
     rerank_score: Optional[float] = None
-    retriever_source: str = "unknown"   # "vector" | "bm25" | "hybrid"
+    graph_score: Optional[float] = None
+    retriever_source: str = "unknown"   # "vector" | "bm25" | "hybrid" | "graph"
 
 
 @dataclass
@@ -131,6 +139,7 @@ class RetrievalResult:
     # Analytics ─────────────────────────────────────────────────────────
     vector_candidates: int = 0
     bm25_candidates: int = 0
+    graph_candidates: int = 0
     total_candidates: int = 0
     chunks_after_fusion: int = 0
     chunks_after_rerank: int = 0

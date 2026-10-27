@@ -32,7 +32,7 @@ export async function updateSessionMemory(
       .join("\n");
 
     const response = await ai.models.generateContent({
-      model: "gemini-3.5-flash",
+      model: process.env.GEMINI_MODEL?.trim() || "gemini-3.8-flash",
       contents: `You are an enterprise knowledge memory manager. Review the following conversation history and output a JSON object containing:
 1. "summary": A very short, concise, high-level summary of the ongoing topic (max 2 sentences).
 2. "facts": An array of important user preferences, constraints, or factual details mentioned (e.g., "User prefers python code", "User is researching RAG architecture"). Include facts only if explicitly mentioned.

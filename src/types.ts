@@ -50,6 +50,12 @@ export type ChatMessage = {
   feedback_id?: string;
   diagnostics?: RetrievalDiagnostics;
   isStreaming?: boolean;
+  attachments?: Array<{
+    name: string;
+    type: string;
+    dataUrl?: string;
+    uploaded?: boolean;
+  }>;
   evaluation_metrics?: {
     faithfulness?: number;
     context_precision?: number;
@@ -62,6 +68,21 @@ export type ChatMessage = {
     routing_reason?: string;
     pii_masked?: boolean;
     cost_estimate?: number;
+    // New fields
+    router_mode?: string;
+    router_reason?: string;
+    router_confidence?: number;
+    mode?: string;
+    vector_candidates?: number;
+    bm25_candidates?: number;
+    graph_candidates?: number;
+    total_candidates?: number;
+    chunks_after_fusion?: number;
+    chunks_after_rerank?: number;
+    web_search_used?: boolean;
+    total_latency_ms?: number;
+    pipeline_duration_ms?: number;
+    expanded_queries?: string[];
   };
 };
 
@@ -89,6 +110,8 @@ export type SessionSummary = {
   is_active: boolean;
   created_at: string;
   last_message_at: string | null;
+  document_ids?: number[];
+  document_name?: string | null;
 };
 
 export type MessageResponse = {
@@ -146,6 +169,14 @@ export type PlatformStats = {
   total_feedback: number;
   avg_rating: number;
   failed_requests: number;
+};
+
+export type AdminApiKeyStatus = {
+  provider: string;
+  key_name: string;
+  status: "working" | "missing" | "not_working" | "temporarily_unavailable";
+  checked_at: string;
+  message?: string;
 };
 
 export type ChunkPreview = {

@@ -36,6 +36,7 @@ import {
   Terminal,
   Server,
   Wifi,
+  Zap,
 } from "lucide-react";
 import {
   apiGetAdminStats,
@@ -55,8 +56,10 @@ import {
   apiGetAdminDocuments,
   apiDeleteAdminDocument,
   apiReindexAdminDocument,
+  apiGetSystemMonitoring,
+  apiGetAdminApiKeyStatus,
 } from "../api";
-import type { PlatformStats } from "../types";
+import type { AdminApiKeyStatus, PlatformStats } from "../types";
 
 type AdminDashboardProps = {
   token: string;
@@ -123,7 +126,7 @@ export function AdminDashboard({ token }: AdminDashboardProps) {
     chunk_size: 1000,
     chunk_overlap: 200,
     embedding_model: "text-embedding-004",
-    llm_model: "gemini-3.5-flash",
+    llm_model: "gemini-3.8-flash",
     top_k: 10,
     similarity_threshold: 0.6,
     temperature: 0.7,
@@ -143,6 +146,14 @@ export function AdminDashboard({ token }: AdminDashboardProps) {
   // Observability states
   const [obsLogs, setObsLogs] = useState<any[]>([]);
   const [obsAggregate, setObsAggregate] = useState<any>({ total_cost: 0, total_tokens: 0, guardrail_blocks: 0, failed_queries: 0 });
+
+  // Live service monitoring state
+  const [serviceHealth, setServiceHealth] = useState<any>(null);
+  const [serviceHealthLoading, setServiceHealthLoading] = useState(false);
+  const [serviceHealthError, setServiceHealthError] = useState<string | null>(null);
+  const [apiKeyStatus, setApiKeyStatus] = useState<AdminApiKeyStatus | null>(null);
+  const [apiKeyStatusLoading, setApiKeyStatusLoading] = useState(false);
+  const [apiKeyStatusError, setApiKeyStatusError] = useState<string | null>(null);
 
   const loadData = () => {
     Promise.all([
@@ -171,9 +182,41 @@ export function AdminDashboard({ token }: AdminDashboardProps) {
       .catch((err) => setError(err instanceof Error ? err.message : "Failed to load analytics"));
   };
 
+  const loadServiceHealth = () => {
+    setServiceHealthLoading(true);
+    setServiceHealthError(null);
+    apiGetSystemMonitoring(token)
+      .then((data) => setServiceHealth(data))
+      .catch((err) => {
+        setServiceHealthError(err instanceof Error ? err.message : "Could not load service monitoring.");
+      })
+      .finally(() => setServiceHealthLoading(false));
+  };
+
+  const loadApiKeyStatus = () => {
+    setApiKeyStatusLoading(true);
+    setApiKeyStatusError(null);
+    apiGetAdminApiKeyStatus(token)
+      .then((data) => setApiKeyStatus(data))
+      .catch((err) => {
+        setApiKeyStatusError(err instanceof Error ? err.message : "Could not check the Gemini API key.");
+      })
+      .finally(() => setApiKeyStatusLoading(false));
+  };
+
   useEffect(() => {
     loadData();
+    loadServiceHealth();
+    loadApiKeyStatus();
   }, [token]);
+
+  // Auto-refresh monitoring every 30 seconds when on monitoring tab
+  useEffect(() => {
+    if (activeTab !== "monitoring") return;
+    loadServiceHealth();
+    const interval = setInterval(loadServiceHealth, 30000);
+    return () => clearInterval(interval);
+  }, [activeTab, token]);
 
   // Refresh user list on search query change
   useEffect(() => {
@@ -181,6 +224,19 @@ export function AdminDashboard({ token }: AdminDashboardProps) {
       .then((usr) => setUsers(usr.users || []))
       .catch(() => {});
   }, [userSearchQuery, token]);
+
+  // Auto-refresh document list every 30 seconds when on documents tab
+  useEffect(() => {
+    if (activeTab !== "documents") return;
+    const refresh = () => {
+      apiGetAdminDocuments(token)
+        .then((docs) => setAdminDocs(docs.documents || []))
+        .catch(() => {});
+    };
+    refresh();
+    const interval = setInterval(refresh, 30000);
+    return () => clearInterval(interval);
+  }, [activeTab, token]);
 
   const handleCreatePrompt = (e: React.FormEvent) => {
     e.preventDefault();
@@ -403,63 +459,185 @@ export function AdminDashboard({ token }: AdminDashboardProps) {
       {/* 0. SERVICE MONITORING TAB */}
       {activeTab === "monitoring" && (
         <div className="flex flex-col gap-6" id="monitoring-panel">
-          {/* Hardware & Cloud Host Telemetry */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {serviceHealthError && (
+            <p className="rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-xs text-red-400" role="alert">
+              Could not load service status: {serviceHealthError}
+            </p>
+          )}
+          {/* Service Health Grid — real-time from backend: 4 cards in Row 1, 4 cards in Row 2 */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {/* Local JSON store */}
             <div className="stat-card bg-zinc-900/20 border border-zinc-900 p-5 rounded-2xl flex flex-col gap-3 shadow-md">
               <div className="flex justify-between items-center text-xs font-semibold text-zinc-400 uppercase tracking-wider font-sans">
-                <span className="flex items-center gap-1.5"><Cpu className="w-4 h-4 text-orange-400 shrink-0" /> Processor Load</span>
-                <span className="text-orange-400 font-bold">24.5%</span>
+                <span className="flex items-center gap-1.5"><Database className="w-4 h-4 text-orange-400 shrink-0" /> Local JSON Store</span>
+                <span className={serviceHealth?.storage?.status === "ok" ? "text-emerald-400 font-bold" : "text-red-400 font-bold"}>
+                  {serviceHealth?.storage?.status === "ok" ? "OK" : serviceHealth?.storage?.status ? "ERR" : "—"}
+                </span>
               </div>
               <div className="w-full bg-zinc-950 h-2 rounded-full overflow-hidden border border-zinc-900">
-                <div className="bg-orange-500 h-full rounded-full transition-all duration-500" style={{ width: "24.5%" }} />
+                <div className="bg-orange-500 h-full rounded-full transition-all duration-500" style={{ width: serviceHealth?.storage?.status === "ok" ? "100%" : "0%" }} />
               </div>
               <div className="flex justify-between text-[11px] text-zinc-500 font-sans">
-                <span>8 Cores Active</span>
-                <span>Normal Temperature</span>
+                <span>Read: {serviceHealth?.storage?.latency_ms != null ? `${serviceHealth.storage.latency_ms} ms` : "—"}</span>
+                <span>{serviceHealth?.storage?.document_count != null ? `${serviceHealth.storage.document_count} docs` : "Checking…"}</span>
               </div>
             </div>
 
+            {/* Redis */}
             <div className="stat-card bg-zinc-900/20 border border-zinc-900 p-5 rounded-2xl flex flex-col gap-3 shadow-md">
               <div className="flex justify-between items-center text-xs font-semibold text-zinc-400 uppercase tracking-wider font-sans">
-                <span className="flex items-center gap-1.5"><Layers className="w-4 h-4 text-orange-400 shrink-0" /> Memory Usage</span>
-                <span className="text-orange-400 font-bold">44.3%</span>
+                <span className="flex items-center gap-1.5"><Layers className="w-4 h-4 text-orange-400 shrink-0" /> Redis Cache</span>
+                <span className={serviceHealth?.redis?.status === "ok" ? "text-emerald-400 font-bold" : serviceHealth?.redis?.status === "not_configured" ? "text-zinc-500 font-bold" : "text-red-400 font-bold"}>
+                  {serviceHealth?.redis?.status === "ok" ? "OK" : serviceHealth?.redis?.status === "not_configured" ? "N/A" : serviceHealth?.redis?.status ? "ERR" : "—"}
+                </span>
               </div>
               <div className="w-full bg-zinc-950 h-2 rounded-full overflow-hidden border border-zinc-900">
-                <div className="bg-orange-500 h-full rounded-full transition-all duration-500" style={{ width: "44.3%" }} />
+                <div className="bg-orange-500 h-full rounded-full transition-all duration-500" style={{ width: serviceHealth?.redis?.status === "ok" ? "100%" : "0%" }} />
               </div>
               <div className="flex justify-between text-[11px] text-zinc-500 font-sans">
-                <span>14.2 GB / 32 GB Used</span>
-                <span>Buffer Handshake OK</span>
+                <span>{serviceHealth?.redis?.message ?? `Latency: ${serviceHealth?.redis?.latency_ms != null ? `${serviceHealth.redis.latency_ms} ms` : "—"}`}</span>
+                <span>{serviceHealth?.redis?.used_memory_mb != null ? `${serviceHealth.redis.used_memory_mb} MB` : "—"}</span>
               </div>
             </div>
 
+            {/* Qdrant */}
             <div className="stat-card bg-zinc-900/20 border border-zinc-900 p-5 rounded-2xl flex flex-col gap-3 shadow-md">
               <div className="flex justify-between items-center text-xs font-semibold text-zinc-400 uppercase tracking-wider font-sans">
-                <span className="flex items-center gap-1.5"><HardDrive className="w-4 h-4 text-orange-400 shrink-0" /> Disk Capacity</span>
-                <span className="text-orange-400 font-bold">32.9%</span>
+                <span className="flex items-center gap-1.5"><Database className="w-4 h-4 text-orange-400 shrink-0" /> Qdrant Vectors</span>
+                <span className={serviceHealth?.qdrant?.status === "ok" ? "text-emerald-400 font-bold" : serviceHealth?.qdrant?.status === "not_configured" ? "text-zinc-500 font-bold" : "text-red-400 font-bold"}>
+                  {serviceHealth?.qdrant?.status === "ok" ? "OK" : serviceHealth?.qdrant?.status === "not_configured" ? "N/A" : serviceHealth?.qdrant?.status ? "ERR" : "—"}
+                </span>
               </div>
               <div className="w-full bg-zinc-950 h-2 rounded-full overflow-hidden border border-zinc-900">
-                <div className="bg-orange-500 h-full rounded-full transition-all duration-500" style={{ width: "32.9%" }} />
+                <div className="bg-orange-500 h-full rounded-full transition-all duration-500" style={{ width: serviceHealth?.qdrant?.status === "ok" ? "100%" : "0%" }} />
               </div>
               <div className="flex justify-between text-[11px] text-zinc-500 font-sans">
-                <span>82.4 GB / 250 GB Used</span>
-                <span>Reads & Writes Stable</span>
+                <span>{serviceHealth?.qdrant?.message ?? `Latency: ${serviceHealth?.qdrant?.latency_ms != null ? `${serviceHealth.qdrant.latency_ms} ms` : "—"}`}</span>
+                <span>{serviceHealth?.qdrant?.vector_count != null ? `${serviceHealth.qdrant.vector_count.toLocaleString()} vectors` : "Checking…"}</span>
               </div>
             </div>
 
+            {/* Celery */}
             <div className="stat-card bg-zinc-900/20 border border-zinc-900 p-5 rounded-2xl flex flex-col gap-3 shadow-md">
               <div className="flex justify-between items-center text-xs font-semibold text-zinc-400 uppercase tracking-wider font-sans">
-                <span className="flex items-center gap-1.5"><Wifi className="w-4 h-4 text-orange-400 shrink-0" /> Network Status</span>
-                <span className="text-orange-400 font-bold">Connected</span>
+                <span className="flex items-center gap-1.5"><Activity className="w-4 h-4 text-orange-400 shrink-0" /> Celery Workers</span>
+                <span className={serviceHealth?.celery?.status === "ok" ? "text-emerald-400 font-bold" : serviceHealth?.celery?.status === "not_configured" ? "text-zinc-500 font-bold" : "text-amber-400 font-bold"}>
+                  {serviceHealth?.celery?.status === "ok" ? "OK" : serviceHealth?.celery?.status === "not_configured" ? "N/A" : serviceHealth?.celery?.status === "no_workers" ? "IDLE" : "—"}
+                </span>
               </div>
               <div className="flex items-center gap-1.5 justify-center py-0.5">
                 <Activity className="w-4 h-4 text-emerald-400 animate-pulse shrink-0" />
-                <span className="text-[12px] font-sans text-zinc-300">Data Transfer Active</span>
+                <span className="text-[12px] font-sans text-zinc-300">
+                  {serviceHealth?.celery?.status === "not_configured" ? "Not used by this server" : serviceHealth?.celery?.worker_count != null ? `${serviceHealth.celery.worker_count} worker(s) online` : "Checking…"}
+                </span>
               </div>
               <div className="flex justify-between text-[11px] text-zinc-500 font-sans">
-                <span>Fast Bandwidth Connection</span>
-                <span>Stable Connection</span>
+                <span>Active tasks: {serviceHealth?.celery?.active_tasks ?? "—"}</span>
+                <span>Latency: {serviceHealth?.celery?.latency_ms != null ? `${serviceHealth.celery.latency_ms} ms` : "—"}</span>
               </div>
+            </div>
+
+            {/* Neo4j Graph DB */}
+            <div className="stat-card bg-zinc-900/20 border border-zinc-900 p-5 rounded-2xl flex flex-col gap-3 shadow-md">
+              <div className="flex justify-between items-center text-xs font-semibold text-zinc-400 uppercase tracking-wider font-sans">
+                <span className="flex items-center gap-1.5"><Database className="w-4 h-4 text-orange-400 shrink-0" /> Neo4j Graph</span>
+                <span className={serviceHealth?.neo4j?.status === "ok" ? "text-emerald-400 font-bold" : serviceHealth?.neo4j?.status === "not_configured" ? "text-zinc-500 font-bold" : "text-red-400 font-bold"}>
+                  {serviceHealth?.neo4j?.status === "ok" ? "OK" : serviceHealth?.neo4j?.status === "not_configured" ? "N/A" : serviceHealth?.neo4j?.status ? "ERR" : "—"}
+                </span>
+              </div>
+              <div className="w-full bg-zinc-950 h-2 rounded-full overflow-hidden border border-zinc-900">
+                <div className="bg-orange-500 h-full rounded-full transition-all duration-500" style={{ width: serviceHealth?.neo4j?.status === "ok" ? "100%" : "0%" }} />
+              </div>
+              <div className="flex justify-between text-[11px] text-zinc-500 font-sans">
+                <span>Latency: {serviceHealth?.neo4j?.latency_ms != null ? `${serviceHealth.neo4j.latency_ms} ms` : "—"}</span>
+                <span>{serviceHealth?.neo4j?.node_count != null ? `${serviceHealth.neo4j.node_count} nodes` : "—"}</span>
+              </div>
+            </div>
+
+            {/* Groq API */}
+            <div className="stat-card bg-zinc-900/20 border border-zinc-900 p-5 rounded-2xl flex flex-col gap-3 shadow-md">
+              <div className="flex justify-between items-center text-xs font-semibold text-zinc-400 uppercase tracking-wider font-sans">
+                <span className="flex items-center gap-1.5"><Zap className="w-4 h-4 text-orange-400 shrink-0" /> Groq API</span>
+                <span className={serviceHealth?.groq?.status === "ok" ? "text-emerald-400 font-bold" : serviceHealth?.groq?.status === "not_configured" ? "text-zinc-500 font-bold" : "text-red-400 font-bold"}>
+                  {serviceHealth?.groq?.status === "ok" ? "OK" : serviceHealth?.groq?.status === "not_configured" ? "N/A" : serviceHealth?.groq?.status ? "ERR" : "—"}
+                </span>
+              </div>
+              <div className="w-full bg-zinc-950 h-2 rounded-full overflow-hidden border border-zinc-900">
+                <div className="bg-orange-500 h-full rounded-full transition-all duration-500" style={{ width: serviceHealth?.groq?.status === "ok" ? "100%" : "0%" }} />
+              </div>
+              <div className="flex justify-between text-[11px] text-zinc-500 font-sans">
+                <span>{serviceHealth?.groq?.message ?? (serviceHealth?.groq?.model ? `Model: ${serviceHealth.groq.model}` : "Not configured")}</span>
+                <span>{serviceHealth?.groq?.latency_ms != null ? `${serviceHealth.groq.latency_ms} ms` : "—"}</span>
+              </div>
+            </div>
+
+            {/* Ollama LLM */}
+            <div className="stat-card bg-zinc-900/20 border border-zinc-900 p-5 rounded-2xl flex flex-col gap-3 shadow-md">
+              <div className="flex justify-between items-center text-xs font-semibold text-zinc-400 uppercase tracking-wider font-sans">
+                <span className="flex items-center gap-1.5"><Cpu className="w-4 h-4 text-orange-400 shrink-0" /> Ollama LLM</span>
+                <span className={serviceHealth?.ollama?.status === "ok" ? "text-emerald-400 font-bold" : serviceHealth?.ollama?.status === "not_configured" ? "text-zinc-500 font-bold" : "text-red-400 font-bold"}>
+                  {serviceHealth?.ollama?.status === "ok" ? "OK" : serviceHealth?.ollama?.status === "not_configured" ? "N/A" : serviceHealth?.ollama?.status ? "ERR" : "—"}
+                </span>
+              </div>
+              <div className="w-full bg-zinc-950 h-2 rounded-full overflow-hidden border border-zinc-900">
+                <div className="bg-orange-500 h-full rounded-full transition-all duration-500" style={{ width: serviceHealth?.ollama?.status === "ok" ? "100%" : "0%" }} />
+              </div>
+              <div className="flex justify-between text-[11px] text-zinc-500 font-sans">
+                <span>Models: {serviceHealth?.ollama?.models_count ?? "—"}</span>
+                <span>{serviceHealth?.ollama?.latency_ms != null ? `${serviceHealth.ollama.latency_ms} ms` : "—"}</span>
+              </div>
+            </div>
+
+            {/* Gemini API key */}
+            <div className="stat-card bg-zinc-900/20 border border-zinc-900 p-5 rounded-2xl flex flex-col gap-3 shadow-md">
+              <div className="flex justify-between items-center text-xs font-semibold text-zinc-400 uppercase tracking-wider font-sans">
+                <span className="flex items-center gap-1.5"><Cpu className="w-4 h-4 text-orange-400 shrink-0" /> Gemini API Key</span>
+                <span className={`font-bold ${
+                  apiKeyStatus?.status === "working"
+                    ? "text-emerald-400"
+                    : apiKeyStatus?.status === "temporarily_unavailable"
+                    ? "text-amber-400"
+                    : apiKeyStatus?.status === "missing" || apiKeyStatus?.status === "not_working" || apiKeyStatusError
+                    ? "text-red-400"
+                    : "text-zinc-500"
+                }`}>
+                  {apiKeyStatusLoading
+                    ? "CHECKING"
+                    : apiKeyStatusError
+                    ? "CHECK FAILED"
+                    : apiKeyStatus?.status === "working"
+                    ? "WORKING"
+                    : apiKeyStatus?.status === "missing"
+                    ? "MISSING"
+                    : apiKeyStatus?.status === "temporarily_unavailable"
+                    ? "TEMPORARILY UNAVAILABLE"
+                    : apiKeyStatus?.status === "not_working"
+                    ? "NOT WORKING"
+                    : "—"}
+                </span>
+              </div>
+              <div className="flex items-center justify-between gap-2 text-[11px] text-zinc-500 font-sans">
+                <span>Server variable: GEMINI_API_KEY</span>
+                <button
+                  type="button"
+                  onClick={loadApiKeyStatus}
+                  disabled={apiKeyStatusLoading}
+                  className="text-orange-400 hover:text-orange-300 disabled:text-zinc-600 flex items-center gap-1"
+                >
+                  <RefreshCw className={`w-3 h-3 ${apiKeyStatusLoading ? "animate-spin" : ""}`} />
+                  Test key
+                </button>
+              </div>
+              {(apiKeyStatus?.message || apiKeyStatusError) && (
+                <p className={`text-[11px] font-sans ${apiKeyStatus?.status === "temporarily_unavailable" ? "text-amber-400" : "text-red-400"}`}>
+                  {apiKeyStatusError || apiKeyStatus?.message}
+                </p>
+              )}
+              {apiKeyStatus?.checked_at && (
+                <p className="text-[10px] text-zinc-600 font-sans">
+                  Last checked: {new Date(apiKeyStatus.checked_at).toLocaleTimeString()}
+                </p>
+              )}
             </div>
           </div>
 
@@ -469,10 +647,19 @@ export function AdminDashboard({ token }: AdminDashboardProps) {
               <h2 className="text-sm font-bold text-zinc-200 uppercase tracking-wider font-sans flex items-center gap-2">
                 <Server className="w-4 h-4 text-orange-500" /> System Services Status
               </h2>
-              <span className="flex items-center gap-1.5 text-[10px] text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full font-sans font-bold">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" />
-                ALL SERVICES RUNNING NORMALLY
-              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={loadServiceHealth}
+                  disabled={serviceHealthLoading}
+                  className="text-[10px] text-zinc-400 hover:text-orange-400 border border-zinc-800 hover:border-orange-500/30 px-2 py-1 rounded-lg font-sans transition flex items-center gap-1"
+                >
+                  <RefreshCw className={`w-3 h-3 ${serviceHealthLoading ? "animate-spin" : ""}`} /> Refresh
+                </button>
+                <span className="flex items-center gap-1.5 text-[10px] text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full font-sans font-bold">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" />
+                  LIVE SERVICE DATA
+                </span>
+              </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 mt-1">
@@ -483,31 +670,45 @@ export function AdminDashboard({ token }: AdminDashboardProps) {
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex justify-between items-center mb-1">
-                    <span className="text-xs font-bold text-zinc-200 font-sans">Vector Search Index</span>
-                    <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-md font-sans">ONLINE</span>
+                    <span className="text-xs font-bold text-zinc-200 font-sans">Vector Search (Qdrant)</span>
+                    <span className={`text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-md font-sans ${
+                      serviceHealth?.qdrant?.status === "ok"
+                        ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+                        : serviceHealth?.qdrant?.status === "not_configured"
+                        ? "bg-zinc-500/10 text-zinc-400 border border-zinc-500/20"
+                        : "bg-red-500/10 text-red-400 border border-red-500/20"
+                    }`}>{serviceHealth?.qdrant?.status === "ok" ? "ONLINE" : serviceHealth?.qdrant?.status === "not_configured" ? "N/A" : "ERROR"}</span>
                   </div>
                   <div className="text-[11px] text-zinc-400 font-sans space-y-0.5">
-                    <p>Response Time: 0.4ms</p>
-                    <p>Collection: <span className="text-orange-400">rag_documents_v2</span></p>
-                    <p>Index Size: 4,218,903 vectors</p>
+                    <p>{serviceHealth?.qdrant?.message ?? `Latency: ${serviceHealth?.qdrant?.latency_ms != null ? `${serviceHealth.qdrant.latency_ms} ms` : "—"}`}</p>
+                    {serviceHealth?.qdrant?.status !== "not_configured" && (
+                      <>
+                        <p>Collections: <span className="text-orange-400">{serviceHealth?.qdrant?.collection_count ?? "—"}</span></p>
+                        <p>Vectors: <span className="text-orange-400">{serviceHealth?.qdrant?.vector_count != null ? serviceHealth.qdrant.vector_count.toLocaleString() : "—"}</span></p>
+                      </>
+                    )}
                   </div>
                 </div>
               </div>
 
-              {/* PostgreSQL Database */}
+              {/* Local JSON database */}
               <div className="bg-zinc-950/65 border border-zinc-900/80 p-4 rounded-xl flex items-start gap-3 hover:border-orange-500/20 transition-all">
                 <div className="p-2 bg-orange-500/10 text-orange-400 rounded-lg">
                   <Database className="w-4 h-4" />
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex justify-between items-center mb-1">
-                    <span className="text-xs font-bold text-zinc-200 font-sans">Database (PostgreSQL)</span>
-                    <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-md font-sans">ONLINE</span>
+                    <span className="text-xs font-bold text-zinc-200 font-sans">Database (db.json)</span>
+                    <span className={`text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-md font-sans ${
+                      serviceHealth?.storage?.status === "ok"
+                        ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+                        : "bg-red-500/10 text-red-400 border border-red-500/20"
+                    }`}>{serviceHealth?.storage?.status === "ok" ? "ONLINE" : serviceHealth?.storage?.status ? "ERROR" : "CHECKING"}</span>
                   </div>
                   <div className="text-[11px] text-zinc-400 font-sans space-y-0.5">
-                    <p>Response Time: 1.1ms</p>
-                    <p>Connection Pools: <span className="text-orange-400">14 / 20 active</span></p>
-                    <p>Database Name: rag_studio_prod</p>
+                    <p>Read latency: <span className="text-orange-400">{serviceHealth?.storage?.latency_ms != null ? `${serviceHealth.storage.latency_ms} ms` : "—"}</span></p>
+                    <p>Documents: <span className="text-orange-400">{serviceHealth?.storage?.document_count ?? "—"}</span></p>
+                    <p>Status: <span className="text-orange-400">{serviceHealth?.storage?.status ?? "Checking…"}</span></p>
                   </div>
                 </div>
               </div>
@@ -520,67 +721,232 @@ export function AdminDashboard({ token }: AdminDashboardProps) {
                 <div className="flex-1 min-w-0">
                   <div className="flex justify-between items-center mb-1">
                     <span className="text-xs font-bold text-zinc-200 font-sans">System Cache (Redis)</span>
-                    <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-md font-sans">ONLINE</span>
+                    <span className={`text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-md font-sans ${
+                      serviceHealth?.redis?.status === "ok"
+                        ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+                        : serviceHealth?.redis?.status === "not_configured"
+                        ? "bg-zinc-500/10 text-zinc-400 border border-zinc-500/20"
+                        : "bg-red-500/10 text-red-400 border border-red-500/20"
+                    }`}>{serviceHealth?.redis?.status === "ok" ? "ONLINE" : serviceHealth?.redis?.status === "not_configured" ? "N/A" : "ERROR"}</span>
                   </div>
                   <div className="text-[11px] text-zinc-400 font-sans space-y-0.5">
-                    <p>Response Time: 0.2ms</p>
-                    <p>Memory Consumed: <span className="text-orange-400">2.42 GB / 8 GB</span></p>
-                    <p>Cache Hit Rate: 94.2%</p>
+                    <p>{serviceHealth?.redis?.message ?? `Latency: ${serviceHealth?.redis?.latency_ms != null ? `${serviceHealth.redis.latency_ms} ms` : "—"}`}</p>
                   </div>
                 </div>
               </div>
 
-              {/* Task queue */}
+              {/* Celery Workers */}
               <div className="bg-zinc-950/65 border border-zinc-900/80 p-4 rounded-xl flex items-start gap-3 hover:border-orange-500/20 transition-all">
                 <div className="p-2 bg-orange-500/10 text-orange-400 rounded-lg">
                   <Activity className="w-4 h-4" />
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex justify-between items-center mb-1">
-                    <span className="text-xs font-bold text-zinc-200 font-sans">Background Job Workers</span>
-                    <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-md font-sans">IDLE</span>
+                    <span className="text-xs font-bold text-zinc-200 font-sans">Background Workers (Celery)</span>
+                    <span className={`text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-md font-sans ${
+                      serviceHealth?.celery?.status === "ok" ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" : serviceHealth?.celery?.status === "not_configured" ? "bg-zinc-500/10 text-zinc-400 border border-zinc-500/20" : "bg-amber-500/10 text-amber-400 border border-amber-500/20"
+                    }`}>{serviceHealth?.celery?.status === "ok" ? "ACTIVE" : serviceHealth?.celery?.status === "not_configured" ? "N/A" : "IDLE"}</span>
                   </div>
                   <div className="text-[11px] text-zinc-400 font-sans space-y-0.5">
-                    <p>Pending Background Jobs: 0</p>
-                    <p>Workers: <span className="text-orange-400">4 active processes</span></p>
-                    <p>Active queues: extraction, embedding</p>
+                    <p>{serviceHealth?.celery?.message ?? `Workers: ${serviceHealth?.celery?.worker_count ?? "—"} online`}</p>
                   </div>
                 </div>
               </div>
 
-              {/* Gemini Gateway */}
+              {/* BM25 Index */}
+              <div className="bg-zinc-950/65 border border-zinc-900/80 p-4 rounded-xl flex items-start gap-3 hover:border-orange-500/20 transition-all">
+                <div className="p-2 bg-orange-500/10 text-orange-400 rounded-lg">
+                  <Search className="w-4 h-4" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex justify-between items-center mb-1">
+                    <span className="text-xs font-bold text-zinc-200 font-sans">BM25 Keyword Index</span>
+                    <span className={`text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-md font-sans ${
+                      serviceHealth?.bm25?.ready ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" : "bg-amber-500/10 text-amber-400 border border-amber-500/20"
+                    }`}>{serviceHealth?.bm25?.ready ? "READY" : serviceHealth?.bm25 ? "EMPTY" : "CHECKING"}</span>
+                  </div>
+                  <div className="text-[11px] text-zinc-400 font-sans space-y-0.5">
+                    <p>Corpus size: <span className="text-orange-400">{serviceHealth?.bm25?.corpus_size?.toLocaleString() ?? "—"} chunks</span></p>
+                    <p>Status: <span className="text-orange-400">{serviceHealth?.bm25?.ready ? "Index ready" : serviceHealth?.bm25 ? "No document chunks yet" : "Checking…"}</span></p>
+                    <p>Type: <span className="text-orange-400">Sparse keyword search</span></p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Graph Index */}
               <div className="bg-zinc-950/65 border border-zinc-900/80 p-4 rounded-xl flex items-start gap-3 hover:border-orange-500/20 transition-all">
                 <div className="p-2 bg-orange-500/10 text-orange-400 rounded-lg">
                   <Cpu className="w-4 h-4" />
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex justify-between items-center mb-1">
-                    <span className="text-xs font-bold text-zinc-200 font-sans">AI Engine (Gemini API)</span>
-                    <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-md font-sans">ONLINE</span>
+                    <span className="text-xs font-bold text-zinc-200 font-sans">Graph RAG Index</span>
+                    <span className={`text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-md font-sans ${
+                      serviceHealth?.graph?.ready ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" : serviceHealth?.graph?.configured === false ? "bg-zinc-500/10 text-zinc-400 border border-zinc-500/20" : "bg-amber-500/10 text-amber-400 border border-amber-500/20"
+                    }`}>{serviceHealth?.graph?.ready ? "READY" : serviceHealth?.graph?.configured === false ? "N/A" : "BUILDING"}</span>
                   </div>
                   <div className="text-[11px] text-zinc-400 font-sans space-y-0.5">
-                    <p>Latency Delay: 112ms</p>
-                    <p>Primary Engine: <span className="text-orange-400">gemini-3.5-flash</span></p>
-                    <p>Rate Limit handshakes: OK</p>
+                    <p>Nodes: <span className="text-orange-400">{serviceHealth?.graph?.node_count?.toLocaleString() ?? "—"} chunks</span></p>
+                    <p>Edges: <span className="text-orange-400">{serviceHealth?.graph?.edge_count?.toLocaleString() ?? "—"} relationships</span></p>
+                    <p>Type: <span className="text-orange-400">{serviceHealth?.graph?.configured === false ? "Not enabled in this server" : "Entity co-occurrence graph"}</span></p>
                   </div>
                 </div>
               </div>
 
-              {/* Docker container sandbox */}
+              {/* Neo4j Graph DB */}
               <div className="bg-zinc-950/65 border border-zinc-900/80 p-4 rounded-xl flex items-start gap-3 hover:border-orange-500/20 transition-all">
                 <div className="p-2 bg-orange-500/10 text-orange-400 rounded-lg">
-                  <Server className="w-4 h-4" />
+                  <Database className="w-4 h-4" />
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex justify-between items-center mb-1">
-                    <span className="text-xs font-bold text-zinc-200 font-sans">Application Server Host</span>
-                    <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-md font-sans">ACTIVE</span>
+                    <span className="text-xs font-bold text-zinc-200 font-sans">Neo4j Graph DB</span>
+                    <span className={`text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-md font-sans ${
+                      serviceHealth?.neo4j?.status === "ok"
+                        ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+                        : serviceHealth?.neo4j?.status === "not_configured"
+                        ? "bg-zinc-500/10 text-zinc-400 border border-zinc-500/20"
+                        : "bg-red-500/10 text-red-400 border border-red-500/20"
+                    }`}>{serviceHealth?.neo4j?.status === "ok" ? "ONLINE" : serviceHealth?.neo4j?.status === "not_configured" ? "N/A" : "ERROR"}</span>
                   </div>
                   <div className="text-[11px] text-zinc-400 font-sans space-y-0.5">
-                    <p>Host PID: Container namespace 1</p>
-                    <p>Containers: <span className="text-orange-400">api-server, worker-node</span></p>
-                    <p>Virtual network: stable_internal_net</p>
+                    <p>{serviceHealth?.neo4j?.message ?? `Latency: ${serviceHealth?.neo4j?.latency_ms != null ? `${serviceHealth.neo4j.latency_ms} ms` : "—"}`}</p>
+                    {serviceHealth?.neo4j?.status === "ok" && (
+                      <p>Nodes: <span className="text-orange-400">{serviceHealth?.neo4j?.node_count?.toLocaleString() ?? "—"}</span></p>
+                    )}
                   </div>
+                </div>
+              </div>
+
+              {/* Groq API */}
+              <div className="bg-zinc-950/65 border border-zinc-900/80 p-4 rounded-xl flex items-start gap-3 hover:border-orange-500/20 transition-all">
+                <div className="p-2 bg-orange-500/10 text-orange-400 rounded-lg">
+                  <Zap className="w-4 h-4" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex justify-between items-center mb-1">
+                    <span className="text-xs font-bold text-zinc-200 font-sans">Groq API</span>
+                    <span className={`text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-md font-sans ${
+                      serviceHealth?.groq?.status === "ok"
+                        ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+                        : serviceHealth?.groq?.status === "not_configured"
+                        ? "bg-zinc-500/10 text-zinc-400 border border-zinc-500/20"
+                        : "bg-red-500/10 text-red-400 border border-red-500/20"
+                    }`}>{serviceHealth?.groq?.status === "ok" ? "ONLINE" : serviceHealth?.groq?.status === "not_configured" ? "N/A" : "ERROR"}</span>
+                  </div>
+                  <div className="text-[11px] text-zinc-400 font-sans space-y-0.5">
+                    <p>{serviceHealth?.groq?.message ?? `Latency: ${serviceHealth?.groq?.latency_ms != null ? `${serviceHealth.groq.latency_ms} ms` : "—"}`}</p>
+                    {serviceHealth?.groq?.model && (
+                      <p>Model: <span className="text-orange-400">{serviceHealth.groq.model}</span></p>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Ollama LLM */}
+              <div className="bg-zinc-950/65 border border-zinc-900/80 p-4 rounded-xl flex items-start gap-3 hover:border-orange-500/20 transition-all">
+                <div className="p-2 bg-orange-500/10 text-orange-400 rounded-lg">
+                  <Cpu className="w-4 h-4" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex justify-between items-center mb-1">
+                    <span className="text-xs font-bold text-zinc-200 font-sans">Ollama LLM</span>
+                    <span className={`text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-md font-sans ${
+                      serviceHealth?.ollama?.status === "ok"
+                        ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+                        : serviceHealth?.ollama?.status === "not_configured"
+                        ? "bg-zinc-500/10 text-zinc-400 border border-zinc-500/20"
+                        : "bg-red-500/10 text-red-400 border border-red-500/20"
+                    }`}>{serviceHealth?.ollama?.status === "ok" ? "ONLINE" : serviceHealth?.ollama?.status === "not_configured" ? "N/A" : "ERROR"}</span>
+                  </div>
+                  <div className="text-[11px] text-zinc-400 font-sans space-y-0.5">
+                    <p>{serviceHealth?.ollama?.message ?? `Latency: ${serviceHealth?.ollama?.latency_ms != null ? `${serviceHealth.ollama.latency_ms} ms` : "—"}`}</p>
+                    {serviceHealth?.ollama?.status === "ok" && (
+                      <p>Models loaded: <span className="text-orange-400">{serviceHealth?.ollama?.models_count ?? "—"}</span></p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Pipeline Response Times & Memory Usage */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {/* Pipeline Response Times */}
+            <div className="bg-zinc-900/20 border border-zinc-900 p-5 rounded-2xl shadow-lg flex flex-col gap-4">
+              <h2 className="text-sm font-bold text-zinc-200 uppercase tracking-wider font-sans flex items-center gap-2">
+                <Activity className="w-4 h-4 text-orange-500" /> Pipeline Response Times
+              </h2>
+              <div className="flex flex-col gap-3">
+                {[
+                  { label: "Embedding", key: "embedding_ms", color: "bg-blue-400" },
+                  { label: "Retrieval", key: "retrieval_ms", color: "bg-purple-400" },
+                  { label: "Reranking", key: "reranking_ms", color: "bg-yellow-400" },
+                  { label: "LLM Generation", key: "llm_ms", color: "bg-green-400" },
+                  { label: "Total Pipeline", key: "total_ms", color: "bg-orange-400" },
+                ].map(({ label, key, color }) => {
+                  const val = serviceHealth?.pipeline_times?.[key as keyof typeof serviceHealth.pipeline_times];
+                  const total = serviceHealth?.pipeline_times?.total_ms || 1;
+                  const pct = val != null ? Math.min((val / Math.max(total, 1)) * 100, 100) : 0;
+                  return (
+                    <div key={key} className="flex flex-col gap-1">
+                      <div className="flex justify-between text-[11px] font-sans">
+                        <span className="text-zinc-400 font-semibold">{label}</span>
+                        <span className="text-zinc-300 font-mono">{val != null ? `${(val as number).toFixed(0)} ms` : "—"}</span>
+                      </div>
+                      <div className="w-full bg-zinc-950 h-1.5 rounded-full overflow-hidden border border-zinc-900">
+                        <div className={`${color} h-full rounded-full transition-all duration-700`} style={{ width: `${key === "total_ms" ? 100 : pct}%` }} />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              {!serviceHealth?.pipeline_times && (
+                <p className="text-[11px] text-zinc-500 font-sans italic">Run a query to populate pipeline timing data.</p>
+              )}
+            </div>
+
+            {/* Memory Usage */}
+            <div className="bg-zinc-900/20 border border-zinc-900 p-5 rounded-2xl shadow-lg flex flex-col gap-4">
+              <h2 className="text-sm font-bold text-zinc-200 uppercase tracking-wider font-sans flex items-center gap-2">
+                <HardDrive className="w-4 h-4 text-orange-500" /> Memory Usage
+              </h2>
+              <div className="flex flex-col gap-4">
+                <div className="flex flex-col gap-2">
+                  <div className="flex justify-between text-[11px] font-sans">
+                    <span className="text-zinc-400 font-semibold">System Memory</span>
+                    <span className="text-zinc-300 font-mono">
+                      {serviceHealth?.memory?.used_mb != null ? `${(serviceHealth.memory.used_mb as number).toFixed(0)} / ${(serviceHealth.memory.total_mb as number)?.toFixed(0)} MB` : "—"}
+                    </span>
+                  </div>
+                  <div className="w-full bg-zinc-950 h-3 rounded-full overflow-hidden border border-zinc-900">
+                    <div
+                      className={`h-full rounded-full transition-all duration-700 ${
+                        (serviceHealth?.memory?.percent ?? 0) > 85 ? "bg-red-400" :
+                        (serviceHealth?.memory?.percent ?? 0) > 70 ? "bg-yellow-400" : "bg-emerald-400"
+                      }`}
+                      style={{ width: `${serviceHealth?.memory?.percent ?? 0}%` }}
+                    />
+                  </div>
+                  <span className="text-[10px] text-zinc-500 font-mono">{serviceHealth?.memory?.percent != null ? `${(serviceHealth.memory.percent as number).toFixed(1)}% used` : "Checking…"}</span>
+                </div>
+
+                <div className="flex flex-col gap-2">
+                  <div className="flex justify-between text-[11px] font-sans">
+                    <span className="text-zinc-400 font-semibold">Process Memory (Backend)</span>
+                    <span className="text-zinc-300 font-mono">
+                      {serviceHealth?.memory?.process_mb != null ? `${(serviceHealth.memory.process_mb as number).toFixed(0)} MB` : "—"}
+                    </span>
+                  </div>
+                  <div className="w-full bg-zinc-950 h-3 rounded-full overflow-hidden border border-zinc-900">
+                    <div
+                      className="h-full rounded-full bg-orange-400 transition-all duration-700"
+                      style={{ width: serviceHealth?.memory?.total_mb ? `${Math.min(((serviceHealth.memory.process_mb as number) || 0) / (serviceHealth.memory.total_mb as number) * 100, 100)}%` : "0%" }}
+                    />
+                  </div>
+                  <span className="text-[10px] text-zinc-500 font-mono">
+                    {serviceHealth?.memory?.process_mb != null ? `Backend Python process uses ${(serviceHealth.memory.process_mb as number).toFixed(0)} MB` : "Checking…"}
+                  </span>
                 </div>
               </div>
             </div>
@@ -997,8 +1363,8 @@ export function AdminDashboard({ token }: AdminDashboardProps) {
                   onChange={(e) => setConfig({ ...config, llm_model: e.target.value })}
                   className="bg-zinc-950 border border-zinc-800 p-2.5 text-xs rounded-xl text-zinc-200 outline-none"
                 >
-                  <option value="gemini-3.5-flash">Gemini 3.5 Flash (Ultralight & Fast)</option>
-                  <option value="gemini-3.1-pro-preview">Gemini 3.1 Pro (Heavy Reasoning)</option>
+                  <option value="gemini-3.8-flash">Gemini 3.8 Flash (Fast)</option>
+                  <option value="gemini-2.5-pro">Gemini 2.5 Pro (Heavy Reasoning)</option>
                   <option value="ollama-llama-3">Ollama / Llama-3-Enterprise-8B</option>
                 </select>
               </div>
@@ -1222,25 +1588,32 @@ export function AdminDashboard({ token }: AdminDashboardProps) {
       {/* 6. OBSERVABILITY TAB */}
       {activeTab === "observability" && (
         <div className="flex flex-col gap-6">
-          {/* Aggregates row */}
-          <div className="stats-grid grid grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="stat-card bg-zinc-900/20 border border-zinc-900 p-4 rounded-2xl flex flex-col gap-1 shadow-md">
-              <span className="stat-label text-xs font-semibold text-zinc-500 uppercase tracking-wider">Accumulated Run Cost</span>
-              <strong className="text-xl text-orange-400 font-sans font-extrabold font-mono">${obsAggregate.total_cost.toFixed(5)}</strong>
-            </div>
-            <div className="stat-card bg-zinc-900/20 border border-zinc-900 p-4 rounded-2xl flex flex-col gap-1 shadow-md">
-              <span className="stat-label text-xs font-semibold text-zinc-500 uppercase tracking-wider">Estimated Tokens</span>
-              <strong className="text-xl text-orange-400 font-sans font-extrabold font-mono">{obsAggregate.total_tokens.toLocaleString()}</strong>
-            </div>
-            <div className="stat-card bg-zinc-900/20 border border-zinc-900 p-4 rounded-2xl flex flex-col gap-1 shadow-md">
-              <span className="stat-label text-xs font-semibold text-zinc-500 uppercase tracking-wider flex items-center gap-1">
-                <AlertTriangle className="w-3.5 h-3.5 text-red-500 shrink-0" /> Guardrail Block Triggers
+          {/* Aggregates row — 4 wide horizontal cards spanning full width */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 w-full">
+            <div className="stat-card bg-zinc-900/20 border border-zinc-900 p-5 rounded-2xl flex flex-col justify-between gap-3 shadow-md w-full min-w-0">
+              <span className="stat-label text-xs font-semibold text-zinc-400 uppercase tracking-wider whitespace-nowrap overflow-hidden text-ellipsis">
+                Accumulated Run Cost
               </span>
-              <strong className="text-xl text-orange-400 font-sans font-extrabold">{obsAggregate.guardrail_blocks}</strong>
+              <strong className="text-2xl text-orange-400 font-sans font-extrabold font-mono">${obsAggregate.total_cost.toFixed(5)}</strong>
             </div>
-            <div className="stat-card bg-zinc-900/20 border border-zinc-900 p-4 rounded-2xl flex flex-col gap-1 shadow-md">
-              <span className="stat-label text-xs font-semibold text-zinc-500 uppercase tracking-wider">Slow/Timeout Queries</span>
-              <strong className="text-xl text-orange-400 font-sans font-extrabold">{obsAggregate.failed_queries}</strong>
+            <div className="stat-card bg-zinc-900/20 border border-zinc-900 p-5 rounded-2xl flex flex-col justify-between gap-3 shadow-md w-full min-w-0">
+              <span className="stat-label text-xs font-semibold text-zinc-400 uppercase tracking-wider whitespace-nowrap overflow-hidden text-ellipsis">
+                Estimated Tokens
+              </span>
+              <strong className="text-2xl text-orange-400 font-sans font-extrabold font-mono">{obsAggregate.total_tokens.toLocaleString()}</strong>
+            </div>
+            <div className="stat-card bg-zinc-900/20 border border-zinc-900 p-5 rounded-2xl flex flex-col justify-between gap-3 shadow-md w-full min-w-0">
+              <span className="stat-label text-xs font-semibold text-zinc-400 uppercase tracking-wider flex items-center gap-1.5 whitespace-nowrap overflow-hidden text-ellipsis">
+                <AlertTriangle className="w-3.5 h-3.5 text-red-500 shrink-0" />
+                <span>Guardrail Block Triggers</span>
+              </span>
+              <strong className="text-2xl text-orange-400 font-sans font-extrabold">{obsAggregate.guardrail_blocks}</strong>
+            </div>
+            <div className="stat-card bg-zinc-900/20 border border-zinc-900 p-5 rounded-2xl flex flex-col justify-between gap-3 shadow-md w-full min-w-0">
+              <span className="stat-label text-xs font-semibold text-zinc-400 uppercase tracking-wider whitespace-nowrap overflow-hidden text-ellipsis">
+                Slow / Timeout Queries
+              </span>
+              <strong className="text-2xl text-orange-400 font-sans font-extrabold">{obsAggregate.failed_queries}</strong>
             </div>
           </div>
 

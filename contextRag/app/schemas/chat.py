@@ -13,6 +13,8 @@ class ChatRequest(BaseModel):
     expand_query: bool | None = None
     show_diagnostics: bool = False
     stream: bool = False
+    # Front-end conversation history for multi-turn context
+    conversation_history: str | None = Field(default=None, max_length=8192)
 
 
 class CitationResponse(BaseModel):
@@ -26,6 +28,8 @@ class CitationResponse(BaseModel):
     text_snippet: str
     score: float
     rerank_score: float | None
+    image_base64: str | None = None   # base64-encoded preview for image documents
+    doc_file_type: str | None = None  # pdf / txt / md / png / jpg etc.
 
 
 class RetrievalDiagnostics(BaseModel):

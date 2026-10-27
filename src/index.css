@@ -75,6 +75,101 @@ a {
     #000;
 }
 
+#root .text-xs {
+  font-size: 0.9375rem;
+  line-height: 1.45;
+}
+
+#root .text-sm {
+  font-size: 1.0625rem;
+  line-height: 1.5;
+}
+
+#root .text-xl {
+  font-size: 1.5rem;
+}
+
+#root .text-2xl {
+  font-size: 1.875rem;
+}
+
+#root .text-\[8px\],
+#root .text-\[9px\] {
+  font-size: 0.75rem;
+}
+
+#root .text-\[10px\] {
+  font-size: 0.8125rem;
+}
+
+#root .text-\[11px\] {
+  font-size: 0.875rem;
+}
+
+#root .text-\[12px\],
+#root .text-\[12\.5px\],
+#root .text-\[13px\] {
+  font-size: 0.9375rem;
+}
+
+#root .nav-link,
+#root .session-meta,
+#root .citation-snippet {
+  font-size: 0.9375rem;
+}
+
+#root .user-info {
+  font-size: 0.8125rem;
+}
+
+#root .citation-card-meta,
+#root .debug-item {
+  font-size: 0.875rem;
+}
+
+#root .debug-item strong {
+  font-size: 0.9375rem;
+}
+
+#admin-analytics-dashboard .text-xs,
+#admin-only-shell .text-xs {
+  font-size: 1rem;
+  line-height: 1.5;
+}
+
+#admin-analytics-dashboard .text-sm,
+#admin-only-shell .text-sm {
+  font-size: 1.125rem;
+  line-height: 1.5;
+}
+
+#admin-analytics-dashboard .text-\[9px\],
+#admin-analytics-dashboard .text-\[10px\],
+#admin-only-shell .text-\[9px\],
+#admin-only-shell .text-\[10px\] {
+  font-size: 0.8125rem;
+}
+
+#admin-analytics-dashboard .text-\[11px\],
+#admin-only-shell .text-\[11px\] {
+  font-size: 0.875rem;
+}
+
+#admin-analytics-dashboard .text-\[12px\],
+#admin-analytics-dashboard .text-\[12\.5px\],
+#admin-only-shell .text-\[12px\],
+#admin-only-shell .text-\[12\.5px\] {
+  font-size: 0.9375rem;
+}
+
+#admin-only-shell .brand-title {
+  font-size: 0.9375rem;
+}
+
+#admin-only-shell .brand-subtitle {
+  font-size: 0.8125rem;
+}
+
 @media (max-width: 1100px) {
   .app-shell {
     grid-template-columns: 1fr;
@@ -230,28 +325,33 @@ a {
 }
 
 .session-item {
-  display: grid;
-  gap: 6px;
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  justify-content: space-between !important;
   text-align: left;
-  padding: 14px 16px;
-  border-radius: 16px;
-  background: #111;
+  padding: 8px 12px;
+  border-radius: 12px;
+  background: transparent;
   border: 1px solid transparent;
-  color: white;
-  transition: transform 0.18s ease, background 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+  color: #d4d4d8;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+  min-height: 36px;
 }
 
 .session-item:hover {
-  transform: translateY(-1px);
-  border-color: var(--orange);
-  background: #171717;
-  box-shadow: 0 0 0 1px rgba(255, 122, 0, 0.08), 0 12px 28px rgba(0, 0, 0, 0.22);
+  transform: none;
+  border-color: transparent;
+  background: rgba(255, 255, 255, 0.06);
+  color: #ffffff;
+  box-shadow: none;
 }
 
 .session-item.active {
-  border-color: var(--orange);
-  background: rgba(255, 122, 0, 0.08);
-  box-shadow: 0 0 0 1px rgba(255, 122, 0, 0.16), 0 0 20px rgba(255, 122, 0, 0.16);
+  border-color: rgba(255, 122, 0, 0.4);
+  background: rgba(255, 122, 0, 0.1);
+  color: #ffffff;
+  box-shadow: none;
 }
 
 .session-name {
@@ -419,7 +519,7 @@ a {
 
 .composer-bar {
   display: flex;
-  align-items: flex-end;
+  flex-direction: column;
   gap: 8px;
   min-height: 48px;
   padding: 6px 10px;
@@ -765,6 +865,7 @@ a {
   }
 
   .composer-bar {
+    flex-direction: column;
     gap: 6px;
     padding: 8px 10px;
     min-height: 58px;
@@ -856,21 +957,31 @@ a {
 .message-content h1,
 .message-content h2,
 .message-content h3 {
-  margin-top: 16px;
-  margin-bottom: 10px;
+  margin-top: 14px;
+  margin-bottom: 6px;
+  line-height: 1.3;
 }
 
 .message-content p {
-  margin: 8px 0;
+  margin: 6px 0;
 }
 
 .message-content ul,
 .message-content ol {
   padding-left: 22px;
+  margin: 6px 0;
 }
 
 .message-content li {
-  margin: 4px 0;
+  margin: 2px 0;
+}
+
+.message-content > :first-child {
+  margin-top: 0;
+}
+
+.message-content > :last-child {
+  margin-bottom: 0;
 }
 
 .message-content code {
@@ -1429,8 +1540,8 @@ a {
 /* ─── Stats / Charts ─────────────────────────────────────────── */
 .stats-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-  gap: 12px;
+  gap: 16px;
+  width: 100%;
   margin-bottom: 24px;
 }
 

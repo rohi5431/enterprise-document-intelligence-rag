@@ -51,7 +51,7 @@ export async function extractDocumentMetadata(
   try {
     const sample = content.substring(0, 3000);
     const response = await ai.models.generateContent({
-      model: "gemini-3.5-flash",
+      model: process.env.GEMINI_MODEL?.trim() || "gemini-3.8-flash",
       contents: `You are an advanced document classification engine. Analyze the following document text sample and output a JSON object containing classification metadata:
 1. "department": One word department (e.g., "Engineering", "Legal", "HR", "Sales", "Finance", "General")
 2. "tags": Array of 2-3 short lowercase tags

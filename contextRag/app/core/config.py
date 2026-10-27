@@ -115,6 +115,14 @@ class Settings(BaseSettings):
     ALLOWED_EXTENSIONS: List[str] = ["pdf", "txt", "docx", "md", "png", "jpg", "jpeg", "tiff"]
     OCR_ENABLED: bool = True
     TABLE_EXTRACTION_ENABLED: bool = True
+    # Handwriting OCR settings
+    HANDWRITING_OCR_CLEANUP_ENABLED: bool = True
+    OCR_MIN_CONFIDENCE: float = 0.7          # below this → treated as handwritten
+
+    # ─── Web Search Fallback ──────────────────────────────────────────────────
+    WEB_SEARCH_ENABLED: bool = True          # fallback to DuckDuckGo when RAG has no results
+    WEB_SEARCH_MAX_RESULTS: int = 5          # number of web results to include in context
+    WEB_SEARCH_CONFIDENCE_THRESHOLD: float = 0.3  # if best RAG score < this, trigger web search
 
     # ─── Rate Limiting ─────────────────────────────────────────────────────────
     RATE_LIMIT_ENABLED: bool = True
@@ -140,6 +148,17 @@ class Settings(BaseSettings):
     # ─── Monitoring ────────────────────────────────────────────────────────────
     ENABLE_METRICS: bool = True
     METRICS_PREFIX: str = "rag_platform"
+
+    # ─── Neo4j (optional) ─────────────────────────────────────────────────────
+    NEO4J_URI: str = ""
+    NEO4J_USER: str = "neo4j"
+    NEO4J_PASSWORD: str = ""
+
+    # ─── Groq (optional) ──────────────────────────────────────────────────────
+    GROQ_API_KEY: str = ""
+
+    # ─── Ollama URL ────────────────────────────────────────────────────────────
+    OLLAMA_URL: str = "http://localhost:11434"
 
     @field_validator("CELERY_ACCEPT_CONTENT", "CORS_ORIGINS", "ALLOWED_EXTENSIONS", mode="before")
     @classmethod
