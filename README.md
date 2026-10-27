@@ -1,19 +1,21 @@
-##  ContextRAG — Enterprise Document Intelligence & RAG Platform
+## 🚀 ContextRAG — Enterprise Document Intelligence & RAG Platform
 
-ContextRAG is an AI-powered document intelligence platform that transforms unstructured documents into searchable, context-aware knowledge. Built with FastAPI, React, and Qdrant, it leverages Retrieval-Augmented Generation (RAG), semantic search, and Large Language Models (LLMs) to generate grounded responses from user-uploaded documents.
+ContextRAG is an AI-powered document intelligence platform that enables users to extract knowledge from documents, images, and online information through natural language queries. Built with FastAPI, React, Qdrant, and Large Language Models (LLMs), it combines Retrieval-Augmented Generation (RAG), Optical Character Recognition (OCR), semantic search, and context-aware generation to deliver relevant, source-grounded answers.
 
-The platform combines document ingestion, intelligent text chunking, embedding generation, vector retrieval, and context-aware answer generation into a unified pipeline. It supports source citations, conversational memory, multi-session chat, and streaming responses to deliver a more transparent and interactive question-answering experience.
+The platform processes text-based and scanned documents, extracts meaningful information from images, retrieves relevant context from indexed knowledge sources, and generates answers based on the available evidence. It can also integrate internet-based information retrieval to answer questions using relevant online content.
 
-Designed with modular backend services and scalable retrieval workflows, ContextRAG aims to reduce hallucinations by grounding responses in relevant document content.
+### ✨ Key Highlights
 
-**Key Highlights**
--  **Document Intelligence:** Extract, process, and index document content for retrieval.
--  **Context-Aware RAG:** Generate responses grounded in relevant document passages.
--  **Semantic Search:** Retrieve relevant information using vector embeddings and Qdrant.
--  **Conversational AI:** Support multi-session conversations and contextual chat history.
--  **Source Citations:** Connect generated answers to retrieved document context.
--  **Streaming Responses:** Deliver generated answers incrementally for a responsive chat experience.
--  **Secure Backend:** Integrate authentication and structured API services.
+-  **Multi-Format Document Intelligence:** Upload and process supported documents, including PDFs and text-based files.
+-  **Image Understanding & OCR:** Extract readable text from scanned documents and images using OCR.
+-  **Internet-Based Information Retrieval:** Retrieve relevant online information to answer questions beyond uploaded documents.
+-  **Context-Aware RAG Pipeline:** Combine document retrieval and LLM generation to produce evidence-grounded responses.
+-  **Semantic Search:** Find relevant information using vector embeddings and Qdrant.
+-  **Conversational AI:** Maintain contextual conversations with multi-session chat and conversation memory.
+-  **Source Citations:** Provide references to retrieved document passages or online sources where supported.
+-  **Streaming Responses:** Display generated answers incrementally for a responsive, interactive experience.
+-  **Authentication & Access Control:** Protect application endpoints through authentication.
+-  **Modular Backend Architecture:** Use FastAPI, PostgreSQL, Redis, and Celery to organize APIs, data persistence, caching, and background processing.
 
 ---
 
