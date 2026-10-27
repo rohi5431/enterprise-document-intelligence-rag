@@ -36,4 +36,4 @@ COPY --from=builder /app/dist ./dist
 EXPOSE 3000
 
 # Directly launch the compiled CJS server bundle
-CMD ["node", "dist/server.cjs"]
+CMD ["node", "dist/contextRag.cjs"]
