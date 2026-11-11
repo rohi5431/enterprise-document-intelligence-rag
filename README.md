@@ -956,64 +956,7 @@ http://127.0.0.1:8000/docs
 
 ```
 
-
-
 ---
-
-
-
-## 🎯 Future Roadmap
-
-
-
-### Phase 1
-
-- FastAPI Setup
-
-- Document Upload
-
-
-
-### Phase 2
-
-- Chunking Pipeline
-
-- Embedding Generation
-
-
-
-### Phase 3
-
-- Vector Database Integration
-
-
-
-### Phase 4
-
-- Retrieval Layer
-
-
-
-### Phase 5
-
-- LLM Integration
-
-
-
-### Phase 6
-
-- Production Deployment
-
-
-
-### Phase 7
-
-- Enterprise Features
-
-
-
----
-
 
 
 ## 🎓 Why This Project?
