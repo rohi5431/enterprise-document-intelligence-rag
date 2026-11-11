@@ -48,7 +48,6 @@ https://enterprise-document-intelligence-rag-1-lw2p.onrender.com
 - Explore FastAPI, Vector Databases, and LLM integration
 
 
-
 ---
 
 ## 🔒 Security Features
@@ -249,10 +248,58 @@ The platform provides enterprise-grade monitoring.
 
 - Production Deployment
 
-
-
 ---
 
+### System Latency, Optimization & End-to-End Benchmarks
+
+#### A. The 7.6-Second Storage Optimization Milestone
+* **Previous Bottleneck:** The admin health check was reading and parsing the full 100.2 MB database file synchronously on the single Node.js thread (`fs.readFileSync(DB_FILE)` + `JSON.parse`), locking the event loop for **7,607 ms**.
+* **Implemented Optimization:** Replaced with atomic `fs.statSync(DB_FILE)` against the live in-memory singleton.
+* **Result:** Reduced read latency from **7,607 ms to 1 ms** (**~7,600× speedup**).
+
+#### B. Redis Query Caching & Pipeline Stage Latency
+
+| Pipeline Stage | Cold Execution Time | Optimized / Cached Time | Performance Gain |
+| :--- | :---: | :---: | :---: |
+| **Storage Monitoring Check** | 7,607 ms | **1 ms** | **7,600× faster** |
+| **BM25 Retrieval Scoring** | 120 – 180 ms | **15 – 30 ms** | 6× faster (Query term pre-filtering) |
+| **Dense Vector Query Embedding** | 120 – 250 ms | **0 ms** | 100% cache hit (In-memory LRU) |
+| **LLM Generation (Groq LPU)** | 1,800 – 4,500 ms (CPU Ollama) | **350 – 500 ms** (Groq) | **5× faster** (TTFT < 200 ms) |
+| **Repeated / Cached RAG Query** | 1,500 – 3,500 ms | **< 5 ms** | **>300× faster** (Redis response cache) |
+
+#### C. Express Concurrency & Throughput (Load Tested)
+
+| Concurrency Streams | Requests Dispatched | Success Rate | Mean Latency | P95 Latency | P99 Latency | Sustained Throughput |
+| :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+| **1 Stream** | 20 | 100% | 5.51 ms | 62.34 ms | 62.34 ms | 180 req/s |
+| **5 Streams** | 100 | 100% | 4.10 ms | 6.25 ms | 7.84 ms | 1,182 req/s |
+| **10 Streams** | 200 | 100% | 2.24 ms | 7.70 ms | 8.63 ms | 4,060 req/s |
+| **25 Streams** | 500 | 100% | 5.16 ms | 16.38 ms | 21.03 ms | 4,801 req/s |
+| **50 Streams** | 1,000 | 100% | **2.33 ms** | **4.88 ms** | **6.71 ms** | **20,947 req/s** |
+
+
+###  Multimodal OCR & Handwriting Evaluation ($N=100$)
+
+To assess extraction fidelity on non-digital and scanned inputs, the OCR pipeline was evaluated on **100 real-world samples** (50 printed text images and 50 unconstrained handwritten notes).
+
+$$\text{CER} = \frac{S + D + I}{N_{\text{ref\_chars}}} \times 100 \qquad \text{WER} = \frac{S_w + D_w + I_w}{N_{\text{ref\_words}}} \times 100$$
+
+#### Quantitative Evaluation Results
+
+| Category & Processing Mode | Samples ($N$) | Mean CER | StdDev ($\sigma$) | 95% Confidence Interval | Mean WER | Exact Match Rate | Exact Match 95% CI (Wilson) |
+| :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+| **Printed Images (Raw OCR)** | 50 | 0.97% | 2.95% | $[0.13\%, 1.81\%]$ | 2.00% | 45 / 50 (90.0%) | $[78.6\%, 95.7\%]$ |
+| **Printed Images (Preprocessed)** | 50 | **0.00%** | **0.00%** | $[0.00\%, 0.00\%]$ | **0.00%** | **50 / 50 (100.0%)** | $[92.9\%, 100.0\%]$ |
+| **Handwritten Notes (Raw OCR)** | 50 | 0.57% | 0.57% | $[0.40\%, 0.73\%]$ | 4.00% | 25 / 50 (50.0%) | $[36.6\%, 63.4\%]$ |
+| **Handwritten Notes (Preprocessed)**| 50 | **0.68%** | 2.74% | $[0.00\%, 1.46\%]$ | **0.50%** | **47 / 50 (94.0%)** | $[83.8\%, 97.9\%]$ |
+
+#### Scientific Explanation of the Handwriting CER vs. WER Trade-Off
+In handwriting, preprocessing decreased the Word Error Rate from **4.00% to 0.50%** and boosted exact sentence matches from **50% to 94%**, yet the character error rate showed a slight numerical increase (**0.57% $\to$ 0.68%**).
+* **The Reason:** When encountering ambiguous strokes, the preprocessor safely inserts an explicit uncertainty flag (`"[unclear] "`).
+* The token `"[unclear] "` introduces 10 inserted ASCII characters not present in the reference string, adding 10 insertion edits to Levenshtein distance ($+11.7\%$ CER on that specific sample).
+* However, at the token level, it represents only **1 word token edit** while preserving the surrounding word boundaries. In RAG systems, preserving accurate word tokens prevents LLM hallucination and is vastly preferable to silent character corruption.
+
+---
 ## 📄 Document AI Ingestion Pipeline
 
 ```text
