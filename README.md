@@ -279,7 +279,6 @@ The platform provides enterprise-grade monitoring.
 
 
 ###  Multimodal OCR & Handwriting Evaluation ($N=100$)
-#### Quantitative Evaluation Results
 
 | Category & Processing Mode | Samples ($N$) | Mean CER | StdDev ($\sigma$) | 95% Confidence Interval | Mean WER | Exact Match Rate | Exact Match 95% CI (Wilson) |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
@@ -287,12 +286,6 @@ The platform provides enterprise-grade monitoring.
 | **Printed Images (Preprocessed)** | 50 | **0.00%** | **0.00%** | $[0.00\%, 0.00\%]$ | **0.00%** | **50 / 50 (100.0%)** | $[92.9\%, 100.0\%]$ |
 | **Handwritten Notes (Raw OCR)** | 50 | 0.57% | 0.57% | $[0.40\%, 0.73\%]$ | 4.00% | 25 / 50 (50.0%) | $[36.6\%, 63.4\%]$ |
 | **Handwritten Notes (Preprocessed)**| 50 | **0.68%** | 2.74% | $[0.00\%, 1.46\%]$ | **0.50%** | **47 / 50 (94.0%)** | $[83.8\%, 97.9\%]$ |
-
-#### Scientific Explanation of the Handwriting CER vs. WER Trade-Off
-In handwriting, preprocessing decreased the Word Error Rate from **4.00% to 0.50%** and boosted exact sentence matches from **50% to 94%**, yet the character error rate showed a slight numerical increase (**0.57% $\to$ 0.68%**).
-* **The Reason:** When encountering ambiguous strokes, the preprocessor safely inserts an explicit uncertainty flag (`"[unclear] "`).
-* The token `"[unclear] "` introduces 10 inserted ASCII characters not present in the reference string, adding 10 insertion edits to Levenshtein distance ($+11.7\%$ CER on that specific sample).
-* However, at the token level, it represents only **1 word token edit** while preserving the surrounding word boundaries. In RAG systems, preserving accurate word tokens prevents LLM hallucination and is vastly preferable to silent character corruption.
 
 ---
 ## 📄 Document AI Ingestion Pipeline
