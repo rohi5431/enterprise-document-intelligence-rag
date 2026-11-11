@@ -279,11 +279,6 @@ The platform provides enterprise-grade monitoring.
 
 
 ###  Multimodal OCR & Handwriting Evaluation ($N=100$)
-
-To assess extraction fidelity on non-digital and scanned inputs, the OCR pipeline was evaluated on **100 real-world samples** (50 printed text images and 50 unconstrained handwritten notes).
-
-$$\text{CER} = \frac{S + D + I}{N_{\text{ref\_chars}}} \times 100 \qquad \text{WER} = \frac{S_w + D_w + I_w}{N_{\text{ref\_words}}} \times 100$$
-
 #### Quantitative Evaluation Results
 
 | Category & Processing Mode | Samples ($N$) | Mean CER | StdDev ($\sigma$) | 95% Confidence Interval | Mean WER | Exact Match Rate | Exact Match 95% CI (Wilson) |
