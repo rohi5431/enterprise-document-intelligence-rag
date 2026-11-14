@@ -40,23 +40,34 @@ class FeedbackService:
         return feedback_id
 
     def submit(
-        self, feedback_id: str, req: FeedbackSubmit, user_id: Optional[int] = None
+        self,
+        feedback_id: str,
+        req: FeedbackSubmit,
+        user_id: Optional[int] = None,
+        is_admin: bool = False,
     ) -> ResponseFeedback:
         fb = self.repo.update_feedback(
             feedback_id=feedback_id,
             rating=req.rating,
             comment=req.comment,
             is_helpful=req.is_helpful,
+            user_id=user_id,
+            is_admin=is_admin,
         )
         if not fb:
-            raise NotFoundException("Feedback", feedback_id)
+            raise NotFoundException("Feedback")
         logger.info("feedback_submitted", feedback_id=feedback_id, rating=req.rating)
         return fb
 
-    def get(self, feedback_id: str) -> ResponseFeedback:
-        fb = self.repo.get_by_feedback_id(feedback_id)
+    def get(
+        self,
+        feedback_id: str,
+        user_id: Optional[int] = None,
+        is_admin: bool = False,
+    ) -> ResponseFeedback:
+        fb = self.repo.get_by_feedback_id(feedback_id, user_id, is_admin)
         if not fb:
-            raise NotFoundException("Feedback", feedback_id)
+            raise NotFoundException("Feedback")
         return fb
 
     def list_feedback(self, skip: int = 0, limit: int = 50, user_id: Optional[int] = None):

@@ -87,19 +87,6 @@ async def upload_document(
             print("FALLBACK ERROR:", e)
 
     background_tasks.add_task(run_ingestion_fallback)
-    def run_ingestion_fallback():
-            from app.tasks.ingestion_tasks import ingest_document_task
-            class DummyTask:
-                request = type('Request', (), {'retries': 0})()
-                def retry(self, exc, countdown):
-                    raise exc
-            try:
-                ingest_document_task(DummyTask(), doc.id, save_path, ext)
-            except Exception as e:
-                print("CELERY ERROR:", e)
-                raise
-                
-        background_tasks.add_task(run_ingestion_fallback)
     return doc
 @router.get("/", response_model=DocumentListResponse)
 def list_documents(
@@ -140,7 +127,11 @@ def get_document_versions(
     db: Session = Depends(get_db),
 ):
     """List all versions of a document."""
-    return DocumentService(db).get_versions(doc_id)
+    return DocumentService(db).get_versions(
+        doc_id,
+        user_id=int(current_user.id),
+        is_admin=current_user.is_admin,
+    )
 @router.get("/job/{task_id}", response_model=JobStatusResponse)
 def get_job_status(task_id: str, current_user: User = Depends(get_current_user)):
     """Get background ingestion job status."""

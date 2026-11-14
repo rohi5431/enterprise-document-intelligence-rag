@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import os
-import shutil
 from typing import Optional
 
 from celery.result import AsyncResult
@@ -10,11 +9,12 @@ from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
-from app.core.exceptions import ValidationException
+from app.core.exceptions import NotFoundException, ValidationException
 from app.db.session import get_db
 from app.dependencies.auth import get_current_user, get_current_admin
 from app.models.user import User
 from app.models.chunk import Chunk
+from app.repositories.document_repository import DocumentRepository
 from app.schemas.document import (
     DocumentListResponse,
     DocumentResponse,
@@ -25,11 +25,16 @@ from app.schemas.document import (
 )
 from app.services.document_service import DocumentService
 from app.services.cache_service import get_cache_service
+from app.services.upload_validation import (
+    UploadValidationError,
+    UploadTooLargeError,
+    cleanup_upload_file,
+    finalize_upload,
+    save_and_validate_upload,
+    validate_upload_filename,
+)
 
 router = APIRouter(prefix="/documents", tags=["Documents"])
-
-os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
-
 
 @router.post("/upload", response_model=DocumentResponse, status_code=201)
 async def upload_document(
@@ -41,31 +46,44 @@ async def upload_document(
     db: Session = Depends(get_db),
 ):
     """Upload and queue a document for processing (Admin only)."""
-    ext = file.filename.rsplit(".", 1)[-1].lower() if "." in file.filename else ""
-    if ext not in settings.ALLOWED_EXTENSIONS:
-        raise ValidationException(
-            f"File type .{ext} not allowed. Allowed: {settings.ALLOWED_EXTENSIONS}"
+    try:
+        filename, ext = validate_upload_filename(
+            file.filename,
+            settings.ALLOWED_EXTENSIONS,
         )
+    except UploadValidationError as exc:
+        raise ValidationException(str(exc)) from exc
 
-    save_path = os.path.join(settings.UPLOAD_DIR, file.filename)
-    with open(save_path, "wb") as buf:
-        shutil.copyfileobj(file.file, buf)
+    try:
+        temporary_path, file_size = await save_and_validate_upload(
+            upload=file,
+            upload_dir=settings.UPLOAD_DIR,
+            extension=ext,
+            max_bytes=settings.max_file_size_bytes,
+        )
+    except UploadTooLargeError as exc:
+        raise HTTPException(status_code=413, detail=str(exc)) from exc
+    except UploadValidationError as exc:
+        raise ValidationException(str(exc)) from exc
 
-    file_size = os.path.getsize(save_path)
-    if file_size > settings.max_file_size_bytes:
-        os.remove(save_path)
-        raise ValidationException(f"File too large. Max {settings.MAX_FILE_SIZE_MB} MB")
-
-    svc = DocumentService(db)
-    doc = svc.create_document(
-        title=title or file.filename,
-        filename=file.filename,
-        file_path=save_path,
-        file_size=file_size,
-        file_type=ext,
-        owner_id=current_user.id,
-        tags=[t.strip() for t in tags.split(",")] if tags else [],
-    )
+    save_path = ""
+    try:
+        save_path = finalize_upload(temporary_path, settings.UPLOAD_DIR, ext)
+        svc = DocumentService(db)
+        doc = svc.create_document(
+            title=title or filename,
+            filename=filename,
+            file_path=save_path,
+            file_size=file_size,
+            file_type=ext,
+            owner_id=current_user.id,
+            tags=[tag.strip() for tag in tags.split(",")] if tags else [],
+        )
+    except BaseException:
+        cleanup_upload_file(temporary_path)
+        if save_path:
+            cleanup_upload_file(save_path)
+        raise
 
     get_cache_service().invalidate_user(current_user.id)
 
@@ -82,8 +100,14 @@ async def upload_document(
                     raise exc
             try:
                 ingest_document_task(DummyTask(), doc.id, save_path, ext)
-            except Exception:
-                pass
+            except Exception as exc:
+                from app.core.logger import get_logger
+
+                get_logger(__name__).error(
+                    "document_ingestion_fallback_failed",
+                    doc_id=doc.id,
+                    error_type=type(exc).__name__,
+                )
         background_tasks.add_task(run_ingestion_fallback)
 
     return doc
@@ -189,7 +213,13 @@ def get_chunk(
         Chunk.qdrant_point_id == chunk_id,
     ).first()
     if not chunk:
-        chunk = db.query(Chunk).filter(Chunk.id == int(chunk_id)).first() if chunk_id.isdigit() else None
+        chunk = (
+            db.query(Chunk)
+            .filter(Chunk.document_id == doc_id, Chunk.id == int(chunk_id))
+            .first()
+            if chunk_id.isdigit()
+            else None
+        )
     if not chunk:
         raise HTTPException(status_code=404, detail="Chunk not found")
     return ChunkPreviewResponse(
@@ -207,11 +237,25 @@ def get_document_versions(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    return DocumentService(db).get_versions(doc_id)
+    return DocumentService(db).get_versions(
+        doc_id,
+        user_id=int(current_user.id),
+        is_admin=current_user.is_admin,
+    )
 
 
 @router.get("/job/{task_id}", response_model=JobStatusResponse)
-def get_job_status(task_id: str, current_user: User = Depends(get_current_user)):
+def get_job_status(
+    task_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    document = DocumentRepository(db).get_by_task_id(task_id)
+    if not document or (
+        not current_user.is_admin and document.owner_id != current_user.id
+    ):
+        raise NotFoundException("Job")
+
     try:
         from app.workers.celery_app import celery_app
         result = AsyncResult(task_id, app=celery_app)
@@ -219,7 +263,14 @@ def get_job_status(task_id: str, current_user: User = Depends(get_current_user))
             task_id=task_id,
             status=result.status,
             result=result.result if result.successful() else None,
-            error=str(result.result) if result.failed() else None,
+            error="Document processing failed" if result.failed() else None,
         )
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    except Exception as exc:
+        from app.core.logger import get_logger
+
+        get_logger(__name__).error(
+            "document_job_status_unavailable",
+            task_id=task_id,
+            error_type=type(exc).__name__,
+        )
+        raise HTTPException(status_code=503, detail="Job status is temporarily unavailable") from exc

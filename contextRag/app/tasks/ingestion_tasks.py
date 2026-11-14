@@ -4,30 +4,18 @@ Celery tasks for document ingestion pipeline
 
 from __future__ import annotations
 
-import sys
 import os
-from rag.retrieval.bm25_manager import get_bm25
-from rag.retrieval.schemas import RetrievalRequest
-print("CURRENT WD =", os.getcwd())
-print("PYTHONPATH =", sys.path)
+import sys
 
 PROJECT_ROOT = os.path.abspath(
     os.path.join(os.path.dirname(__file__), "..", "..")
 )
 
-print("PROJECT_ROOT =", PROJECT_ROOT)
-
 if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
-print("UPDATED SYS PATH =", sys.path[:5])
-
-try:
-    import rag
-    print("RAG FILE =", rag.__file__)
-except Exception as e:
-    print("RAG IMPORT ERROR =", e)
-
+from rag.retrieval.bm25_manager import get_bm25
+from rag.retrieval.schemas import RetrievalRequest
 import logging
 from typing import Optional
 
@@ -44,7 +32,9 @@ class BaseIngestionTask(Task):
 
     def on_failure(self, exc, task_id, args, kwargs, einfo):
         logger.error(
-            f"task_failed task_id={task_id} error={str(exc)}"
+            "task_failed task_id=%s error_type=%s",
+            task_id,
+            type(exc).__name__,
         )
 
         # Update document status to failed
@@ -61,11 +51,14 @@ class BaseIngestionTask(Task):
                     DocumentRepository(db).update_status(
                         doc_id,
                         "failed",
-                        error_message=str(exc)
+                        error_message="Document processing failed"
                     )
-
-        except Exception:
-            pass
+        except Exception as status_exc:
+            logger.error(
+                "task_failure_status_update_failed task_id=%s error_type=%s",
+                task_id,
+                type(status_exc).__name__,
+            )
 
 @celery_app.task(
     bind=True,
@@ -81,41 +74,24 @@ def ingest_document_task(self, doc_id: int, file_path: str, file_type: str) -> d
     """
 
     logger.info(
-        f"ingest_start doc_id={doc_id} file_path={file_path}"
+        "ingest_start doc_id=%s",
+        doc_id,
     )
 
     try:
-        # ===== DEBUG IMPORTS =====
         from app.db.session import get_db_context
-        print("✓ get_db_context OK")
 
         from app.repositories.document_repository import DocumentRepository
-        print("✓ DocumentRepository OK")
-        
-        import importlib.util
-        
-        print("rag spec =", importlib.util.find_spec("rag"))
-        print("rag.ingestion spec =", importlib.util.find_spec("rag.ingestion"))
-        print(
-            "document_loader spec =",
-            importlib.util.find_spec("rag.ingestion.document_loader")
-        )
-        
+
         from rag.ingestion.document_loader import DocumentLoader
-        print("✓ DocumentLoader OK")
 
         from rag.chunking.text_chunker import TextChunker
-        print("✓ TextChunker OK")
 
         from rag.embeddings.bge_embedder import BGEEmbedder
-        print("✓ BGEEmbedder OK")
 
         from rag.vectorstore.qdrant_store import QdrantVectorStore
-        print("✓ QdrantVectorStore OK")
 
         from app.core.config import settings
-        print("✓ Settings OK")
-        # =========================
 
         with get_db_context() as db:
             repo = DocumentRepository(db)
@@ -273,14 +249,10 @@ def ingest_document_task(self, doc_id: int, file_path: str, file_type: str) -> d
         }
 
     except Exception as exc:
-        import traceback
-
-        print("\n===== FULL ERROR =====")
-        traceback.print_exc()
-        print("======================\n")
-
         logger.error(
-            f"ingest_error doc_id={doc_id} error={str(exc)}"
+            "ingest_error doc_id=%s error_type=%s",
+            doc_id,
+            type(exc).__name__,
         )
 
         try:
@@ -288,10 +260,14 @@ def ingest_document_task(self, doc_id: int, file_path: str, file_type: str) -> d
                 DocumentRepository(db).update_status(
                     doc_id,
                     "failed",
-                    error=str(exc),
+                    error="Document processing failed",
                 )
-        except Exception:
-            pass
+        except Exception as status_exc:
+            logger.error(
+                "ingest_status_update_failed doc_id=%s error_type=%s",
+                doc_id,
+                type(status_exc).__name__,
+            )
 
         raise self.retry(
             exc=exc,

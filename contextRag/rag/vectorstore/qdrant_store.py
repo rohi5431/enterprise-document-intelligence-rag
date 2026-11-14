@@ -41,7 +41,7 @@ class QdrantVectorStore:
                     ),
                 )
         except Exception as exc:
-            logger.error("Failed to ensure Qdrant collection: %s", exc)
+            logger.error("Failed to ensure Qdrant collection: %s", type(exc).__name__)
             raise
 
     def upsert_chunks(
@@ -68,7 +68,10 @@ class QdrantVectorStore:
                     doc_filename = doc.filename
                     owner_id = doc.owner_id
         except Exception as exc:
-            logger.warning("Could not fetch document details from DB for payload embedding: %s", exc)
+            logger.warning(
+                "Could not fetch document details for payload embedding: %s",
+                type(exc).__name__,
+            )
 
         for i, (chunk, embedding) in enumerate(zip(chunks, embeddings)):
             point_id = str(uuid.uuid4())
@@ -102,15 +105,11 @@ class QdrantVectorStore:
 
         try:
             logger.info("Upserting %d points to collection %s", len(points), self.collection_name)
-            result = self.client.upsert(
+            self.client.upsert(
                 collection_name=self.collection_name,
                 points=points,
             )
-            print("UPSERT RESULT =", result)
-            print("COLLECTION =", self.collection_name)
-            print("POINTS =", len(points))
-            
             return point_ids
         except Exception as exc:
-            logger.error("Failed to upsert points to Qdrant: %s", exc)
+            logger.error("Failed to upsert points to Qdrant: %s", type(exc).__name__)
             raise

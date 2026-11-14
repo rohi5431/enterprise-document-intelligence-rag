@@ -57,7 +57,7 @@ class AdminService:
     ) -> dict:
         feedbacks = self.feedback.list_feedback(skip, limit)
         stats = self.feedback.get_stats()
-        return {"feedback": feedbacks, "stats": stats}
+        return {"feedback": feedbacks, "total": stats.get("total", 0), "stats": stats}
 
     def get_query_analytics(self, days: int = 30) -> dict:
         stats = self.analytics.get_query_stats(days)

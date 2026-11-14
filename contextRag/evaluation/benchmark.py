@@ -59,6 +59,9 @@ class EvaluationBenchmark:
         total_context_relevance = 0.0
         total_answer_relevance = 0.0
         
+        successful_queries = 0
+        failed_queries = 0
+
         # Timing
         start_time = time.perf_counter()
 
@@ -68,6 +71,8 @@ class EvaluationBenchmark:
             logger.info("Evaluating sample %d/%d: %r", idx, len(samples), query[:60])
 
             # Run pipeline retrieval + generation
+            execution_status = "SUCCESS"
+            error_details = None
             try:
                 # Execute full pipeline
                 res = self.pipeline.run(query, top_k=k, final_top_k=k)
@@ -78,39 +83,47 @@ class EvaluationBenchmark:
                 retrieved_docs = [src["doc_id"] for src in sources]
                 
                 # Build retrieved context string
-                context = "\n\n".join(src["text_snippet"] for src in sources)
+                context = "\n\n".join(src.get("text_snippet", "") for src in sources)
+                successful_queries += 1
             except Exception as exc:
                 logger.error("Pipeline run failed for sample: %s. Error: %s", query, exc)
-                # Fallback to mock retrieval values for testing/robustness
-                retrieved_docs = list(ground_truth_docs) if idx % 2 == 0 else []
-                answer = "Mock answer matching context."
-                context = "Mock context contents."
+                execution_status = "FAILED"
+                error_details = str(exc)
+                failed_queries += 1
+                retrieved_docs = []
+                answer = ""
+                context = ""
                 sources = []
 
-            # 1. Compute retrieval metrics
-            hr_val = hit_rate(retrieved_docs, ground_truth_docs)
-            p_val = precision_at_k(retrieved_docs, ground_truth_docs, k)
-            r_val = recall_at_k(retrieved_docs, ground_truth_docs, k)
-            mrr_val = mrr(retrieved_docs, ground_truth_docs)
-            ndcg_val = ndcg_at_k(retrieved_docs, ground_truth_docs, k)
+            # 1. Compute retrieval metrics (explicit 0.0 if failed, no synthetic data)
+            if execution_status == "SUCCESS":
+                hr_val = hit_rate(retrieved_docs, ground_truth_docs)
+                p_val = precision_at_k(retrieved_docs, ground_truth_docs, k)
+                r_val = recall_at_k(retrieved_docs, ground_truth_docs, k)
+                mrr_val = mrr(retrieved_docs, ground_truth_docs)
+                ndcg_val = ndcg_at_k(retrieved_docs, ground_truth_docs, k)
+
+                # 2. Compute generation metrics
+                faith_val = self.evaluator.faithfulness(answer, context)
+                cr_val = self.evaluator.context_relevance(query, context)
+                ar_val = self.evaluator.answer_relevance(query, answer)
+            else:
+                hr_val = p_val = r_val = mrr_val = ndcg_val = 0.0
+                faith_val = cr_val = ar_val = 0.0
 
             total_hit_rate += hr_val
             total_precision += p_val
             total_recall += r_val
             total_mrr += mrr_val
             total_ndcg += ndcg_val
-
-            # 2. Compute generation metrics
-            faith_val = self.evaluator.faithfulness(answer, context)
-            cr_val = self.evaluator.context_relevance(query, context)
-            ar_val = self.evaluator.answer_relevance(query, answer)
-
             total_faithfulness += faith_val
             total_context_relevance += cr_val
             total_answer_relevance += ar_val
 
             results.append({
                 "query": query,
+                "status": execution_status,
+                "error": error_details,
                 "ground_truth_docs": list(ground_truth_docs),
                 "retrieved_docs": retrieved_docs,
                 "answer": answer,
@@ -134,17 +147,19 @@ class EvaluationBenchmark:
             "evaluation_timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
             "dataset": os.path.basename(self.dataset_path),
             "samples_evaluated": num_samples,
+            "successful_queries": successful_queries,
+            "failed_queries": failed_queries,
             "k_parameter": k,
             "total_execution_time_sec": round(elapsed, 2),
             "averages": {
-                "hit_rate": round(total_hit_rate / num_samples, 4),
-                "precision_at_k": round(total_precision / num_samples, 4),
-                "recall_at_k": round(total_recall / num_samples, 4),
-                "mrr": round(total_mrr / num_samples, 4),
-                "ndcg_at_k": round(total_ndcg / num_samples, 4),
-                "faithfulness": round(total_faithfulness / num_samples, 4),
-                "context_relevance": round(total_context_relevance / num_samples, 4),
-                "answer_relevance": round(total_answer_relevance / num_samples, 4),
+                "hit_rate": round(total_hit_rate / num_samples, 4) if num_samples else 0.0,
+                "precision_at_k": round(total_precision / num_samples, 4) if num_samples else 0.0,
+                "recall_at_k": round(total_recall / num_samples, 4) if num_samples else 0.0,
+                "mrr": round(total_mrr / num_samples, 4) if num_samples else 0.0,
+                "ndcg_at_k": round(total_ndcg / num_samples, 4) if num_samples else 0.0,
+                "faithfulness": round(total_faithfulness / num_samples, 4) if num_samples else 0.0,
+                "context_relevance": round(total_context_relevance / num_samples, 4) if num_samples else 0.0,
+                "answer_relevance": round(total_answer_relevance / num_samples, 4) if num_samples else 0.0,
             }
         }
 
@@ -171,6 +186,7 @@ class EvaluationBenchmark:
         print(f"Timestamp:   {summary['evaluation_timestamp']}")
         print(f"Dataset:     {summary['dataset']}")
         print(f"Samples:     {summary['samples_evaluated']}")
+        print(f"Success/Fail:{summary['successful_queries']}/{summary['failed_queries']}")
         print(f"Top-K (K):   {summary['k_parameter']}")
         print(f"Time Taken:  {summary['total_execution_time_sec']} seconds")
         print("-" * 50)

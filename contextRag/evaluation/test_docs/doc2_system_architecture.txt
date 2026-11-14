@@ -1,0 +1,23 @@
+CONTEXTRAG SYSTEM ARCHITECTURE
+
+ContextRag is an enterprise document intelligence and RAG platform. The system uses the following technology stack:
+
+BACKEND: FastAPI (Python) serves as the authoritative REST API backend, running on uvicorn at port 8000. The API prefix is /api/v1. All API endpoints require JWT Bearer authentication except for /auth/register and /auth/login.
+
+FRONTEND: React with TypeScript runs on Vite development server at port 5173. It proxies /api/v1 requests to the FastAPI backend. The frontend uses a token stored in localStorage for authentication persistence.
+
+DATABASE: PostgreSQL stores relational data including users, documents, chunks, chat sessions, messages, feedback, and document versions. SQLAlchemy with connection pooling manages database access. Alembic handles schema migrations.
+
+CACHE: Redis is used for query result caching (database 1), session caching (database 2), job status (database 3), and Celery broker (database 4). The cache TTL for queries is 600 seconds.
+
+BACKGROUND PROCESSING: Celery workers handle asynchronous document ingestion tasks. When a document is uploaded, the Celery task processes it through: text extraction, chunking, embedding generation, and Qdrant storage.
+
+VECTOR STORE: Qdrant stores document chunk embeddings. The collection name is 'rag_documents'. Vector size is 384 (matching BAAI/bge-small-en-v1.5). Distance metric is COSINE.
+
+EMBEDDING: The BAAI/bge-small-en-v1.5 sentence transformer model generates 384-dimensional embeddings. The model runs on CPU. Batch size for embedding is 32.
+
+LLM PROVIDER: Ollama (default) runs locally at port 11434 with the llama3 model. Alternative providers include OpenAI (GPT-4o) and Google Gemini (gemini-2.0-flash).
+
+SECURITY: JWT tokens with HS256 algorithm. Access tokens expire in 30 minutes. Refresh tokens expire in 7 days. Upload is admin-only. Rate limiting uses Redis-backed sliding window.
+
+UPLOAD: Supported file types are PDF, TXT, DOCX, MD, PNG, JPG, JPEG, TIFF. Maximum file size is 50 MB. Files are stored with server-generated UUID names in uploads/docs directory.

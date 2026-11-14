@@ -65,7 +65,7 @@ export function SettingsPage({ token, onPreferencesChange }: SettingsPageProps) 
           >
             {prefs.available_providers.map((p) => (
               <option key={p} value={p}>
-                {p === "ollama" ? "Local LLM (Ollama)" : p === "openai" ? "OpenAI GPT-4o" : "Gemini 2.5 Pro"}
+                {p === "ollama" ? "Local LLM (Ollama)" : "Groq Cloud"}
               </option>
             ))}
           </select>
@@ -96,7 +96,7 @@ export function SettingsPage({ token, onPreferencesChange }: SettingsPageProps) 
               }
               id="settings-query-expansion-checkbox"
             />
-            <span>Enable Query Expansion (Gemini Multi-Querying)</span>
+            <span>Enable Query Expansion (uses extra model requests)</span>
           </label>
         </div>
 

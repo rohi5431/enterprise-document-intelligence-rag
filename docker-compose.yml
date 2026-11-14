@@ -1,0 +1,253 @@
+version: "3.8"
+
+services:
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Ingress / Node.js Express Gateway & Web Frontend
+  # ─────────────────────────────────────────────────────────────────────────────
+  contextrag-node:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: contextrag-node
+    restart: unless-stopped
+    stop_grace_period: 15s
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - QDRANT_URL=http://qdrant:6333
+      - REDIS_URL=redis://redis:6379
+      - NEO4J_URI=bolt://neo4j:7687
+      - NEO4J_USERNAME=neo4j
+      - NEO4J_PASSWORD=password123
+      - NEO4J_DATABASE=neo4j
+      - OLLAMA_BASE_URL=http://host.docker.internal:11434
+      - CORS_ORIGINS=["http://localhost:3000","http://localhost:5173"]
+    env_file:
+      - .env
+    volumes:
+      - node_storage:/app/storage
+    depends_on:
+      qdrant:
+        condition: service_started
+      redis:
+        condition: service_started
+      neo4j:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/health', (r) => process.exit(r.statusCode === 200 ? 0 : 1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 2048M
+    networks:
+      - contextrag-network
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Python Document AI & Graph RAG Microservice
+  # ─────────────────────────────────────────────────────────────────────────────
+  contextrag-python:
+    build:
+      context: ./contextRag
+      dockerfile: Dockerfile
+    container_name: contextrag-python
+    restart: unless-stopped
+    stop_grace_period: 15s
+    ports:
+      - "8000:8000"
+    environment:
+      - ENVIRONMENT=production
+      - DATABASE_URL=postgresql+psycopg2://postgres:${POSTGRES_PASSWORD:-YourOwnStrongDevelopmentRohit123!}@postgres:5432/rag_db
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/4
+      - CELERY_RESULT_BACKEND=redis://redis:6379/5
+      - QDRANT_HOST=qdrant
+      - QDRANT_PORT=6333
+      - QDRANT_URL=http://qdrant:6333
+      - NEO4J_URI=bolt://neo4j:7687
+      - NEO4J_USER=neo4j
+      - NEO4J_PASSWORD=password123
+      - NEO4J_DATABASE=neo4j
+      - CORS_ORIGINS=["http://localhost:3000","http://localhost:5173"]
+    env_file:
+      - .env
+    volumes:
+      - python_storage:/app/storage
+    depends_on:
+      postgres:
+        condition: service_started
+      redis:
+        condition: service_started
+      qdrant:
+        condition: service_started
+      neo4j:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 2048M
+    networks:
+      - contextrag-network
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Celery Asynchronous Background Task Worker
+  # ─────────────────────────────────────────────────────────────────────────────
+  contextrag-celery-worker:
+    build:
+      context: ./contextRag
+      dockerfile: Dockerfile
+    container_name: contextrag-celery-worker
+    command: ["celery", "-A", "app.workers.celery_app.celery_app", "worker", "--loglevel=info"]
+    restart: unless-stopped
+    environment:
+      - ENVIRONMENT=production
+      - DATABASE_URL=postgresql+psycopg2://postgres:${POSTGRES_PASSWORD:-YourOwnStrongDevelopmentRohit123!}@postgres:5432/rag_db
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/4
+      - CELERY_RESULT_BACKEND=redis://redis:6379/5
+      - QDRANT_HOST=qdrant
+      - QDRANT_PORT=6333
+      - QDRANT_URL=http://qdrant:6333
+    env_file:
+      - .env
+    depends_on:
+      postgres:
+        condition: service_started
+      redis:
+        condition: service_started
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 1024M
+    networks:
+      - contextrag-network
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Relational Database (PostgreSQL 15)
+  # ─────────────────────────────────────────────────────────────────────────────
+  postgres:
+    image: postgres:15-alpine
+    container_name: contextrag-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-YourOwnStrongDevelopmentRohit123!}
+      POSTGRES_DB: rag_db
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 1024M
+    networks:
+      - contextrag-network
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Vector Database (Qdrant)
+  # ─────────────────────────────────────────────────────────────────────────────
+  qdrant:
+    image: qdrant/qdrant:v1.12.1
+    container_name: contextrag-qdrant
+    restart: unless-stopped
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+    volumes:
+      - qdrant_storage:/qdrant/storage
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 2048M
+    networks:
+      - contextrag-network
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # System Cache & Message Broker (Redis 7)
+  # ─────────────────────────────────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: contextrag-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 512M
+    networks:
+      - contextrag-network
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Graph Database (Neo4j 5)
+  # ─────────────────────────────────────────────────────────────────────────────
+  neo4j:
+    image: neo4j:5-community
+    container_name: contextrag-neo4j
+    restart: unless-stopped
+    ports:
+      - "7474:7474"
+      - "7687:7687"
+    environment:
+      - NEO4J_AUTH=neo4j/password123
+    volumes:
+      - neo4j_data:/data
+      - neo4j_logs:/logs
+    deploy:
+      resources:
+        limits:
+          cpus: "1.5"
+          memory: 1536M
+    networks:
+      - contextrag-network
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Production Reverse Proxy (NGINX)
+  # ─────────────────────────────────────────────────────────────────────────────
+  nginx:
+    image: nginx:alpine
+    container_name: contextrag-proxy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - contextrag-node
+    networks:
+      - contextrag-network
+    profiles:
+      - with-proxy
+
+volumes:
+  node_storage:
+  python_storage:
+  postgres_data:
+  qdrant_storage:
+  redis_data:
+  neo4j_data:
+  neo4j_logs:
+
+networks:
+  contextrag-network:
+    driver: bridge

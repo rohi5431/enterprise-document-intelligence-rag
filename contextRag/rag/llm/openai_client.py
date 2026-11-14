@@ -40,8 +40,8 @@ class OpenAIClient:
             )
             return response.choices[0].message.content or ""
         except Exception as exc:
-            logger.error("OpenAI generation failed: %s", exc)
-            raise RuntimeError(f"OpenAI generation failed: {exc}") from exc
+            logger.error("OpenAI generation failed: %s", type(exc).__name__)
+            raise RuntimeError("OpenAI generation failed") from exc
 
     def generate_stream(self, prompt: str) -> Generator[str, None, None]:
         if not self.api_key:
@@ -60,5 +60,5 @@ class OpenAIClient:
                 if delta:
                     yield delta
         except Exception as exc:
-            logger.error("OpenAI streaming failed: %s", exc)
-            raise RuntimeError(f"OpenAI streaming failed: {exc}") from exc
+            logger.error("OpenAI streaming failed: %s", type(exc).__name__)
+            raise RuntimeError("OpenAI streaming failed") from exc

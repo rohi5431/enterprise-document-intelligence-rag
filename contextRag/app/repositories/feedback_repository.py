@@ -17,16 +17,26 @@ class FeedbackRepository:
         self.db.refresh(feedback)
         return feedback
 
-    def get_by_feedback_id(self, feedback_id: str) -> Optional[ResponseFeedback]:
-        return (
-            self.db.query(ResponseFeedback)
-            .filter(ResponseFeedback.feedback_id == feedback_id).first()
+    def get_by_feedback_id(
+        self, feedback_id: str, user_id: Optional[int] = None, is_admin: bool = False
+    ) -> Optional[ResponseFeedback]:
+        query = self.db.query(ResponseFeedback).filter(
+            ResponseFeedback.feedback_id == feedback_id
         )
+        if not is_admin:
+            query = query.filter(ResponseFeedback.user_id == user_id)
+        return query.first()
 
     def update_feedback(
-        self, feedback_id: str, rating: int, comment: Optional[str], is_helpful: Optional[int]
+        self,
+        feedback_id: str,
+        rating: int,
+        comment: Optional[str],
+        is_helpful: Optional[int],
+        user_id: Optional[int] = None,
+        is_admin: bool = False,
     ) -> Optional[ResponseFeedback]:
-        fb = self.get_by_feedback_id(feedback_id)
+        fb = self.get_by_feedback_id(feedback_id, user_id, is_admin)
         if fb:
             fb.rating = rating
             fb.comment = comment
@@ -39,7 +49,7 @@ class FeedbackRepository:
         self, skip: int = 0, limit: int = 50, user_id: Optional[int] = None
     ) -> List[ResponseFeedback]:
         q = self.db.query(ResponseFeedback)
-        if user_id:
+        if user_id is not None:
             q = q.filter(ResponseFeedback.user_id == user_id)
         return q.order_by(desc(ResponseFeedback.created_at)).offset(skip).limit(limit).all()
 

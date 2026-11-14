@@ -25,6 +25,8 @@ export type Citation = {
   score: number;
   rerank_score: number | null;
   image_base64?: string | null;
+  is_handwritten?: boolean;
+  ocr_confidence?: number;
 };
 
 export type RetrievalDiagnostics = {
@@ -136,6 +138,8 @@ export type DocumentSummary = {
   created_at: string;
   processed_at: string | null;
   image_base64?: string | null;
+  is_handwritten?: boolean;
+  ocr_confidence?: number;
 };
 
 export type SemanticSearchResult = {
@@ -194,4 +198,20 @@ export type CitationPreviewTarget = {
   pageNumber: number | null;
   chunkId: string;
   textSnippet: string;
+};
+
+
+export type BatchUploadResult = {
+  batch_id: string;
+  total_files: number;
+  processed_count: number;
+  skipped_count: number;
+  failed_count: number;
+  results: Array<{
+    filename: string;
+    status: "processed" | "skipped" | "error";
+    document?: DocumentSummary;
+    message?: string;
+    error?: string;
+  }>;
 };

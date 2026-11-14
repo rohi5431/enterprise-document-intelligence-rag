@@ -14,15 +14,20 @@ from rag.llm.ollama_client import OllamaClient
 logger = logging.getLogger(__name__)
 
 
+class GenerationEvaluationError(RuntimeError):
+    """Raised when an LLM evaluation metric computation fails without fallback."""
+    pass
+
+
 class GenerationEvaluator:
     """
-    Uses Ollama to evaluate RAG generation quality metrics.
+    Uses Ollama or mock LLM to evaluate RAG generation quality metrics.
     """
 
     def __init__(self, llm: Optional[OllamaClient] = None) -> None:
         self.llm = llm or OllamaClient()
 
-    def faithfulness(self, answer: str, context: str) -> float:
+    def faithfulness(self, answer: str, context: str, raise_on_error: bool = False) -> float:
         """
         Evaluate whether the generated answer is grounded in the provided
         context (i.e., no hallucinations).
@@ -52,7 +57,7 @@ Return ONLY a JSON object:
 
         try:
             response = self.llm.generate(prompt)
-            score = self._parse_json_score(response)
+            score = self._parse_json_score(response, raise_on_error=raise_on_error)
             return score / 100.0
 
         except Exception as exc:
@@ -61,9 +66,11 @@ Return ONLY a JSON object:
                 exc,
                 exc_info=True,
             )
-            return 0.5
+            if raise_on_error:
+                raise GenerationEvaluationError(f"Faithfulness evaluation failed: {exc}") from exc
+            return 0.0
 
-    def context_relevance(self, query: str, context: str) -> float:
+    def context_relevance(self, query: str, context: str, raise_on_error: bool = False) -> float:
         """
         Evaluate whether the retrieved context is relevant to the query.
 
@@ -92,7 +99,7 @@ Return ONLY a JSON object:
 
         try:
             response = self.llm.generate(prompt)
-            score = self._parse_json_score(response)
+            score = self._parse_json_score(response, raise_on_error=raise_on_error)
             return score / 100.0
 
         except Exception as exc:
@@ -101,9 +108,11 @@ Return ONLY a JSON object:
                 exc,
                 exc_info=True,
             )
-            return 0.5
+            if raise_on_error:
+                raise GenerationEvaluationError(f"Context relevance evaluation failed: {exc}") from exc
+            return 0.0
 
-    def answer_relevance(self, query: str, answer: str) -> float:
+    def answer_relevance(self, query: str, answer: str, raise_on_error: bool = False) -> float:
         """
         Evaluate whether the generated answer directly addresses the query.
 
@@ -137,7 +146,7 @@ Return ONLY a JSON object:
 
         try:
             response = self.llm.generate(prompt)
-            score = self._parse_json_score(response)
+            score = self._parse_json_score(response, raise_on_error=raise_on_error)
             return score / 100.0
 
         except Exception as exc:
@@ -146,69 +155,24 @@ Return ONLY a JSON object:
                 exc,
                 exc_info=True,
             )
-            return 0.5
+            if raise_on_error:
+                raise GenerationEvaluationError(f"Answer relevance evaluation failed: {exc}") from exc
+            return 0.0
 
-    def _parse_json_score(self, text: str) -> int:
+    def answer_correctness(
+        self,
+        query: str,
+        answer: str,
+        ground_truth: str,
+        raise_on_error: bool = False,
+    ) -> float:
         """
-        Extract score from LLM JSON output.
-
-        Supports:
-        - Raw JSON
-        - JSON inside markdown code blocks
-        - Partial JSON responses
+        Compare the generated answer with the ground truth.
 
         Returns:
-            int: Score between 0 and 100
+            float: Score between 0.0 and 1.0
         """
-        try:
-            # Remove markdown fences if present
-            cleaned_text = text.strip()
-            cleaned_text = cleaned_text.replace("```json", "")
-            cleaned_text = cleaned_text.replace("```", "")
-
-            # Extract first JSON object
-            json_match = re.search(
-                r"\{.*?\}",
-                cleaned_text,
-                re.DOTALL,
-            )
-
-            if json_match:
-                data = json.loads(json_match.group())
-
-                score = int(data.get("score", 50))
-                return max(0, min(100, score))
-
-        except Exception as exc:
-            logger.warning(
-                "JSON parsing failed: %s",
-                exc,
-            )
-
-        # Fallback regex extraction
-        match = re.search(
-            r'"score"\s*:\s*(\d+)',
-            text,
-        )
-
-        if match:
-            score = int(match.group(1))
-            return max(0, min(100, score))
-
-        logger.warning(
-            "Could not extract score from evaluator output: %s",
-            text[:200],
-        )
-
-        return 50
-def answer_correctness(
-    self,
-    query: str,
-    answer: str,
-    ground_truth: str
-) -> float:
-
-    prompt = f"""
+        prompt = f"""
 Compare the generated answer with the ground truth.
 
 Query:
@@ -227,19 +191,57 @@ Return JSON:
   "reasoning": "<brief_reasoning>"
 }}
 """
+        try:
+            response = self.llm.generate(prompt)
+            score = self._parse_json_score(response, raise_on_error=raise_on_error)
+            return score / 100.0
+        except Exception as exc:
+            logger.error(
+                "Failed to compute answer correctness score: %s",
+                exc,
+                exc_info=True,
+            )
+            if raise_on_error:
+                raise GenerationEvaluationError(f"Answer correctness evaluation failed: {exc}") from exc
+            return 0.0
 
-    try:
+    def _parse_json_score(self, text: str, raise_on_error: bool = False) -> int:
+        """
+        Extract score from LLM JSON output.
 
-        response = self.llm.generate(
-            prompt
-        )
+        Supports:
+        - Raw JSON
+        - JSON inside markdown code blocks
+        - Partial JSON responses
 
-        score = self._parse_json_score(
-            response
-        )
+        Returns:
+            int: Score between 0 and 100
+        """
+        try:
+            cleaned_text = text.strip()
+            cleaned_text = cleaned_text.replace("```json", "")
+            cleaned_text = cleaned_text.replace("```", "")
 
-        return score / 100.0
+            json_match = re.search(
+                r"\{.*?\}",
+                cleaned_text,
+                re.DOTALL,
+            )
 
-    except Exception:
+            if json_match:
+                data = json.loads(json_match.group())
+                score = int(data.get("score", 0))
+                return max(0, min(100, score))
 
-        return 0.5
+        except Exception as exc:
+            logger.warning("JSON parsing failed: %s", exc)
+
+        match = re.search(r'"score"\s*:\s*(\d+)', text)
+        if match:
+            score = int(match.group(1))
+            return max(0, min(100, score))
+
+        logger.warning("Could not extract score from evaluator output: %s", text[:200])
+        if raise_on_error:
+            raise GenerationEvaluationError(f"Could not parse valid score from output: {text[:100]}")
+        return 0

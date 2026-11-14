@@ -11,7 +11,7 @@ import secrets
 from functools import lru_cache
 from typing import Any, List, Optional
 
-from pydantic import Field, field_validator
+from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -139,11 +139,14 @@ class Settings(BaseSettings):
     LOG_FORMAT: str = "json"
 
     # ─── CORS ──────────────────────────────────────────────────────────────────
-    CORS_ORIGINS: List[str] = ["*"]
+    CORS_ORIGINS: List[str] = [
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+    ]
 
     # ─── Admin ─────────────────────────────────────────────────────────────────
     ADMIN_EMAIL: str = "admin@ragplatform.com"
-    ADMIN_PASSWORD: str = "Admin@1234"
+    ADMIN_PASSWORD: Optional[str] = None
 
     # ─── Monitoring ────────────────────────────────────────────────────────────
     ENABLE_METRICS: bool = True
@@ -166,6 +169,40 @@ class Settings(BaseSettings):
         if isinstance(v, str):
             return [i.strip() for i in v.split(",")]
         return v
+
+    @model_validator(mode="after")
+    def validate_production_security(self) -> "Settings":
+        if self.ENVIRONMENT.lower() == "production":
+            secret_placeholder = any(
+                marker in self.SECRET_KEY.lower()
+                for marker in ("replace_with", "your_secret", "change_me", "example")
+            )
+            if (
+                "SECRET_KEY" not in self.model_fields_set
+                or len(self.SECRET_KEY) < 32
+                or secret_placeholder
+            ):
+                raise ValueError("Production requires an explicit SECRET_KEY of at least 32 characters")
+            if "DATABASE_URL" not in self.model_fields_set:
+                raise ValueError("Production requires an explicit DATABASE_URL")
+            if any(
+                marker in self.DATABASE_URL.lower()
+                for marker in ("replace_with", "your_", "user:password@")
+            ):
+                raise ValueError("Production DATABASE_URL cannot contain placeholder credentials")
+            if (
+                "CORS_ORIGINS" not in self.model_fields_set
+                or not self.CORS_ORIGINS
+                or "*" in self.CORS_ORIGINS
+            ):
+                raise ValueError("Production requires explicit, non-wildcard CORS_ORIGINS")
+            if self.RATE_LIMIT_ENABLED and "REDIS_URL" not in self.model_fields_set:
+                raise ValueError("Production rate limiting requires an explicit REDIS_URL")
+        if self.MAX_FILE_SIZE_MB < 1:
+            raise ValueError("MAX_FILE_SIZE_MB must be at least 1")
+        if self.RATE_LIMIT_REQUESTS < 1 or self.RATE_LIMIT_WINDOW < 1:
+            raise ValueError("Rate limiting request count and window must be positive")
+        return self
 
     @property
     def max_file_size_bytes(self) -> int:

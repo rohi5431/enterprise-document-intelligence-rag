@@ -41,9 +41,9 @@ class DocumentService:
         tags: Optional[list] = None,
     ) -> Document:
         file_hash = self._compute_hash(file_path)
-        existing = self.repo.get_document_by_hash(file_hash)
+        existing = self.repo.get_document_by_hash(file_hash, owner_id=owner_id)
         if existing:
-            raise ConflictException(f"Document with this content already exists (id={existing.id})")
+            raise ConflictException("A document with this content already exists")
 
         doc = Document(
             title=title,
@@ -58,19 +58,24 @@ class DocumentService:
             version_number=1,
             is_latest_version=True,
         )
-        doc = self.repo.create(doc)
+        try:
+            self.db.add(doc)
+            self.db.flush()
 
-        # Create version record
-        version = DocumentVersion(
-            document_id=doc.id,
-            version_number=1,
-            file_path=file_path,
-            file_hash=file_hash,
-            file_size=file_size,
-            uploaded_by=owner_id,
-        )
-        self.db.add(version)
-        self.db.commit()
+            version = DocumentVersion(
+                document_id=doc.id,
+                version_number=1,
+                file_path=file_path,
+                file_hash=file_hash,
+                file_size=file_size,
+                uploaded_by=owner_id,
+            )
+            self.db.add(version)
+            self.db.commit()
+            self.db.refresh(doc)
+        except Exception:
+            self.db.rollback()
+            raise
 
         logger.info("document_created", doc_id=doc.id, filename=filename)
         return doc
@@ -79,7 +84,7 @@ class DocumentService:
         doc = self.repo.get(doc_id)
         if not doc:
             raise NotFoundException("Document", doc_id)
-        if user_id and doc.owner_id != user_id and not doc.is_public:
+        if user_id is not None and doc.owner_id != user_id and not doc.is_public:
             raise ForbiddenException("Document access denied")
         return doc
 
@@ -106,10 +111,13 @@ class DocumentService:
                 pass
         return self.repo.delete(doc)
 
-    def get_versions(self, doc_id: int) -> List[DocumentVersion]:
-        doc = self.repo.get(doc_id)
-        if not doc:
-            raise NotFoundException("Document", doc_id)
+    def get_versions(
+        self,
+        doc_id: int,
+        user_id: int,
+        is_admin: bool = False,
+    ) -> List[DocumentVersion]:
+        self.get_document(doc_id, user_id=user_id if not is_admin else None)
         return self.db.query(DocumentVersion).filter(
             DocumentVersion.document_id == doc_id
         ).order_by(DocumentVersion.version_number).all()

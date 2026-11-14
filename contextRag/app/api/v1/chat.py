@@ -69,26 +69,57 @@ def _embed_image(file_path: str | None, filename: str | None) -> str | None:
         return None
 
 
-def _build_citations(sources: list, db: Session | None = None) -> list[CitationResponse]:
+def _filter_authorized_sources(
+    sources: list,
+    db: Session,
+    user_id: int,
+    is_admin: bool,
+) -> list:
     from app.models.document import Document as DocModel  # avoid circular import
+    document_ids = {
+        source.get("doc_id")
+        for source in sources
+        if isinstance(source.get("doc_id"), int)
+    }
+    if not document_ids:
+        return []
+
+    documents = db.query(DocModel).filter(DocModel.id.in_(document_ids))
+    if not is_admin:
+        documents = documents.filter(
+            (DocModel.owner_id == user_id) | (DocModel.is_public.is_(True))
+        )
+    authorized_ids = {document.id for document in documents.all()}
+    return [source for source in sources if source.get("doc_id") in authorized_ids]
+
+
+def _build_citations(
+    sources: list,
+    db: Session,
+    user_id: int,
+    is_admin: bool,
+) -> list[CitationResponse]:
+    from app.models.document import Document as DocModel  # avoid circular import
+    sources = _filter_authorized_sources(sources, db, user_id, is_admin)
+    documents = {
+        document.id: document
+        for document in db.query(DocModel).filter(
+            DocModel.id.in_({source["doc_id"] for source in sources})
+        )
+    } if sources else {}
     citations = []
     for s in sources:
         doc_id = s.get("doc_id", 0)
+        doc = documents.get(doc_id)
+        if not doc:
+            continue
+
         filename = s.get("doc_filename") or ""
         ext = os.path.splitext(filename)[1].lower().lstrip(".")
 
-        # Try to load image from DB document record
         image_b64: str | None = None
-        file_path: str | None = None
-        if db and doc_id:
-            try:
-                doc = db.query(DocModel).filter(DocModel.id == doc_id).first()
-                if doc:
-                    file_path = doc.file_path
-                    if ext in {e.lstrip(".") for e in _IMAGE_EXTS}:
-                        image_b64 = _embed_image(file_path, filename)
-            except Exception:
-                pass
+        if ext in {e.lstrip(".") for e in _IMAGE_EXTS}:
+            image_b64 = _embed_image(doc.file_path, filename)
 
         citations.append(CitationResponse(
             citation_number=s["citation_number"],
@@ -163,7 +194,12 @@ def send_message(
     cache_hit = result.get("cache_hit", False)
 
     sources = result.get("sources", [])
-    citations = _build_citations(sources)
+    citations = _build_citations(
+        sources,
+        db=db,
+        user_id=int(current_user.id),
+        is_admin=current_user.is_admin,
+    )
     confidence = 0.0
     if sources:
         top = sources[0]
@@ -279,13 +315,26 @@ def send_message_stream(
             llm_model=prefs.llm_model,
             conversation_history=merged_history or None,
         ):
+            if event["type"] == "metadata":
+                sources = _filter_authorized_sources(
+                    event.get("sources", []),
+                    db,
+                    int(current_user.id),
+                    current_user.is_admin,
+                )
+                event = {**event, "sources": sources}
             if event["type"] == "token":
                 full_answer += event["content"]
             if event["type"] == "metadata":
                 sources = event.get("sources", [])
             yield f"data: {json.dumps(event)}\n\n"
 
-        citations = _build_citations(sources)
+        citations = _build_citations(
+            sources,
+            db=db,
+            user_id=int(current_user.id),
+            is_admin=current_user.is_admin,
+        )
         feedback_svc = FeedbackService(db)
         feedback_id = feedback_svc.create_slot(
             user_id=current_user.id,

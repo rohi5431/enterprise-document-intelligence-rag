@@ -1,0 +1,64 @@
+{
+  "observed_date": "2026-11-09",
+  "phase": 5,
+  "probe_type": "non-mutating connectivity and availability checks",
+  "secrets_recorded": false,
+  "service_results": {
+    "postgresql": {
+      "status": "tcp_connected",
+      "scope": "loopback",
+      "authentication_or_query_tested": false
+    },
+    "redis_cache": {
+      "status": "pong",
+      "authentication_or_application_configuration_tested": false
+    },
+    "celery_broker_redis": {
+      "status": "pong",
+      "authentication_or_worker_tested": false
+    },
+    "celery_result_redis": {
+      "status": "pong",
+      "authentication_or_worker_tested": false
+    },
+    "qdrant": {
+      "status": "tcp_connected",
+      "scope": "external_https_target",
+      "api_authentication_or_collection_accessed": false
+    },
+    "ollama": {
+      "status": "tcp_connected",
+      "scope": "loopback",
+      "model_api_tested": false
+    },
+    "celery_worker": {
+      "status": "no_matching_process"
+    },
+    "fastapi": {
+      "status": "http_unavailable",
+      "path_checked": "/health"
+    },
+    "frontend": {
+      "status": "http_unavailable",
+      "node_modules_present": false
+    }
+  },
+  "dataset_validation": {
+    "command": "python evaluation\\run_rag_benchmark.py --mode validate-dataset",
+    "status": "pass",
+    "dataset_version": "1.0.0",
+    "total_questions": 25,
+    "answerable_questions": 21,
+    "unanswerable_questions": 4,
+    "schema_errors": 0
+  },
+  "load_test": {
+    "status": "not_run",
+    "reason": "FastAPI was unavailable and the configured Qdrant target was external."
+  },
+  "live_rag_benchmark": {
+    "status": "not_run",
+    "run_id": null,
+    "reason": "No verified isolated database/vector collection; direct benchmark calls do not apply an owner filter."
+  }
+}

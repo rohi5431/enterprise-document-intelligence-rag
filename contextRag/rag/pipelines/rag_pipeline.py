@@ -90,7 +90,9 @@ class AdvancedRAGPipeline:
             try:
                 expanded = self._expander.expand(query)
             except Exception as exc:
-                logger.warning("[%s] Query expansion failed: %s", query_id, exc)
+                logger.warning(
+                    "[%s] Query expansion failed: %s", query_id, type(exc).__name__
+                )
 
         # Auto-select retrieval mode via router when not explicitly set
         router_decision = None
@@ -105,7 +107,9 @@ class AdvancedRAGPipeline:
                     router_decision.reason,
                 )
             except Exception as exc:
-                logger.warning("[%s] QueryRouter failed: %s", query_id, exc)
+                logger.warning(
+                    "[%s] QueryRouter failed: %s", query_id, type(exc).__name__
+                )
                 effective_mode = self._default_mode
 
         request = RetrievalRequest(
@@ -126,8 +130,10 @@ class AdvancedRAGPipeline:
             result: RetrievalResult = self._retriever.retrieve(request)
             chunks = result.chunks
         except Exception as exc:
-            logger.error("[%s] Retrieval failed: %s", query_id, exc)
-            error_msg = str(exc)
+            logger.error(
+                "[%s] Retrieval failed: %s", query_id, type(exc).__name__
+            )
+            error_msg = type(exc).__name__
             result = RetrievalResult(
                 query=query, expanded_queries=expanded, chunks=[], mode=request.mode
             )
@@ -155,8 +161,12 @@ class AdvancedRAGPipeline:
                     self._memory.add_user(query)
                     self._memory.add_assistant(answer)
                 except Exception as exc:
-                    logger.error("[%s] LLM web-search generation failed: %s", query_id, exc)
-                    answer = f"Web search found results but LLM generation failed: {exc}"
+                    logger.error(
+                        "[%s] LLM web-search generation failed: %s",
+                        query_id,
+                        type(exc).__name__,
+                    )
+                    answer = "Web search found results, but answer generation is temporarily unavailable."
                 llm_ms = (time.perf_counter() - t_llm) * 1000
                 sources = []
             else:
@@ -191,9 +201,13 @@ class AdvancedRAGPipeline:
                 self._memory.add_user(query)
                 self._memory.add_assistant(answer)
             except Exception as exc:
-                logger.error("[%s] LLM generation failed: %s", query_id, exc)
-                answer = f"Error generating answer: {exc}"
-                error_msg = str(exc)
+                logger.error(
+                    "[%s] LLM generation failed: %s",
+                    query_id,
+                    type(exc).__name__,
+                )
+                answer = "Answer generation is temporarily unavailable."
+                error_msg = type(exc).__name__
             llm_ms = (time.perf_counter() - t_llm) * 1000
             sources = self._build_sources(chunks)
 
@@ -270,7 +284,9 @@ class AdvancedRAGPipeline:
             try:
                 expanded = self._expander.expand(query)
             except Exception as exc:
-                logger.warning("Query expansion failed: %s", exc)
+                logger.warning(
+                    "Query expansion failed: %s", type(exc).__name__
+                )
 
         # ── Query Router ──────────────────────────────────────────────────
         effective_mode = self._default_mode
@@ -279,7 +295,9 @@ class AdvancedRAGPipeline:
             router_decision = self._router.route(query)
             effective_mode = router_decision.mode
         except Exception as exc:
-            logger.warning("QueryRouter failed in stream: %s", exc)
+            logger.warning(
+                "QueryRouter failed in stream: %s", type(exc).__name__
+            )
 
         request = RetrievalRequest(
             query=query,
@@ -298,7 +316,9 @@ class AdvancedRAGPipeline:
             result = self._retriever.retrieve(request)
             chunks = result.chunks
         except Exception as exc:
-            logger.error("Stream retrieval failed: %s", exc)
+            logger.error(
+                "Stream retrieval failed: %s", type(exc).__name__
+            )
             result = RetrievalResult(query=query, expanded_queries=expanded, chunks=[], mode=request.mode)
             chunks = []
 
@@ -362,9 +382,16 @@ class AdvancedRAGPipeline:
         # ── Streaming LLM generation ──────────────────────────────────────
         llm = self._get_llm(llm_provider, llm_model)
         full_answer = ""
-        for token in llm.generate_stream(prompt):
-            full_answer += token
-            yield {"type": "token", "content": token}
+        try:
+            for token in llm.generate_stream(prompt):
+                full_answer += token
+                yield {"type": "token", "content": token}
+        except Exception as exc:
+            logger.error(
+                "Stream generation failed: %s", type(exc).__name__
+            )
+            full_answer = "Answer generation is temporarily unavailable."
+            yield {"type": "token", "content": full_answer}
 
         self._memory.add_user(query)
         self._memory.add_assistant(full_answer)

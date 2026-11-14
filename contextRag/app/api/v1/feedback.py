@@ -20,7 +20,12 @@ def submit_feedback(
     db: Session = Depends(get_db),
 ):
     """Submit feedback for a RAG response."""
-    return FeedbackService(db).submit(feedback_id, req, user_id=current_user.id)
+    return FeedbackService(db).submit(
+        feedback_id,
+        req,
+        user_id=int(current_user.id),
+        is_admin=current_user.is_admin,
+    )
 
 
 @router.get("/{feedback_id}", response_model=FeedbackResponse)
@@ -30,4 +35,8 @@ def get_feedback(
     db: Session = Depends(get_db),
 ):
     """Get feedback by ID."""
-    return FeedbackService(db).get(feedback_id)
+    return FeedbackService(db).get(
+        feedback_id,
+        user_id=int(current_user.id),
+        is_admin=current_user.is_admin,
+    )

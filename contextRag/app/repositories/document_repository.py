@@ -15,8 +15,16 @@ class DocumentRepository(BaseRepository[Document]):
     def __init__(self, db: Session) -> None:
         super().__init__(Document, db)
 
-    def get_document_by_hash(self, file_hash: str) -> Optional[Document]:
-        return self.db.query(Document).filter(Document.file_hash == file_hash).first()
+    def get_document_by_hash(
+        self, file_hash: str, owner_id: Optional[int] = None
+    ) -> Optional[Document]:
+        query = self.db.query(Document).filter(Document.file_hash == file_hash)
+        if owner_id is not None:
+            query = query.filter(Document.owner_id == owner_id)
+        return query.first()
+
+    def get_by_task_id(self, task_id: str) -> Optional[Document]:
+        return self.db.query(Document).filter(Document.celery_task_id == task_id).first()
 
     def list_documents(
         self,

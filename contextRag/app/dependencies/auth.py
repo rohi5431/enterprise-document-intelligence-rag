@@ -15,6 +15,10 @@ from app.repositories.user_repository import UserRepository
 oauth2_scheme = OAuth2PasswordBearer(
     tokenUrl="/api/v1/auth/token"
 )
+optional_oauth2_scheme = OAuth2PasswordBearer(
+    tokenUrl="/api/v1/auth/token",
+    auto_error=False,
+)
 
 
 def get_current_user(
@@ -53,7 +57,7 @@ def get_current_admin(
 
 
 def get_optional_user(
-    token: str | None = Depends(oauth2_scheme),
+    token: str | None = Depends(optional_oauth2_scheme),
     db: Session = Depends(get_db),
 ) -> User | None:
     if not token:
@@ -61,9 +65,10 @@ def get_optional_user(
 
     try:
         payload = decode_token(token)
+        if payload.get("type") != "access":
+            return None
         user_id = int(payload["sub"])
-
-        return UserRepository(db).get_by_id(user_id)
-
-    except Exception:
+        user = UserRepository(db).get_by_id(user_id)
+        return user if user and user.is_active else None
+    except (JWTError, ValueError, KeyError):
         return None

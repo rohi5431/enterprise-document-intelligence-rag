@@ -36,15 +36,6 @@ class OllamaClient:
 
         try:
             logger.info("OllamaClient: Generating with model=%s", self.model)
-            print("🔥 CALLING OLLAMA API...")
-
-            print("URL =", url)
-            print("MODEL =", self.model)
-            with open("last_prompt.txt", "w", encoding="utf-8") as f:
-                f.write(prompt)
-            
-            print("PROMPT SAVED")
-            print("PROMPT SIZE =", len(prompt))
             response = requests.post(
                 url,
                 json=payload,
@@ -52,10 +43,8 @@ class OllamaClient:
                 stream=True
             )
             
-            print("🔥 OLLAMA RESPONDED")
-            
             if response.status_code != 200:
-                logger.error("Ollama API failed with status %d: %s", response.status_code, response.text)
+                logger.error("Ollama API failed with status %d", response.status_code)
                 raise RuntimeError(f"Ollama API returned status {response.status_code}")
 
             if stream:
@@ -67,17 +56,13 @@ class OllamaClient:
                 return "".join(full_response)
             else:
                 data = response.json()
-
-                print("🔥 RESPONSE JSON RECEIVED")
-                print(data)
-                
                 return data.get("response", "")
         except requests.Timeout as exc:
             logger.error("Ollama client request timed out after %d seconds", self.timeout)
-            raise RuntimeError(f"Ollama generation timed out: {exc}")
+            raise RuntimeError("Ollama generation timed out") from exc
         except Exception as exc:
-            logger.error("Ollama generation error: %s", exc)
-            raise RuntimeError(f"Ollama generation failed: {exc}")
+            logger.error("Ollama generation failed: %s", type(exc).__name__)
+            raise RuntimeError("Ollama generation failed") from exc
         
     def generate_stream(self, prompt: str):
         """
@@ -122,8 +107,8 @@ class OllamaClient:
                     break
     
         except Exception as exc:
-            logger.error("Streaming generation failed: %s", exc)
-            raise RuntimeError(f"Streaming generation failed: {exc}")
+            logger.error("Streaming generation failed: %s", type(exc).__name__)
+            raise RuntimeError("Streaming generation failed") from exc
 
     def is_available(self) -> bool:
         """Check if local Ollama service tag list is reachable."""

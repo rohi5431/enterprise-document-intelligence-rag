@@ -86,24 +86,35 @@ export function AdminDashboard({ token }: AdminDashboardProps) {
 
   useEffect(() => {
     if (activeTab !== "monitoring") return;
-    const interval = setInterval(() => {
-      const messages = [
-        "System heartbeat verified successfully.",
-        "Database query health checks passed.",
-        "Warmed up search indexes and vectors.",
-        "Optimized system caching parameters.",
-        "Processed background document extraction queue.",
-        "Safety guardrails checked; no PII leaks detected.",
-        "User activity log audited and synchronized.",
-        "Est. query latency normalized to healthy levels.",
-      ];
-      const randomMsg = messages[Math.floor(Math.random() * messages.length)];
-      const timestamp = new Date().toTimeString().split(" ")[0];
-      const logLine = `${timestamp} - ${randomMsg}`;
-      setLiveLogs((prev) => [...prev.slice(-14), logLine]);
-    }, 3000);
+    const fetchLogs = () => {
+      apiGetObservabilityLogs(token)
+        .then((obs) => {
+          if (obs?.logs && Array.isArray(obs.logs) && obs.logs.length > 0) {
+            const formatted = obs.logs.slice(-20).map((l: any) => {
+              const time = l.timestamp ? new Date(l.timestamp).toTimeString().split(" ")[0] : new Date().toTimeString().split(" ")[0];
+              const querySnippet = l.query ? `"${l.query.substring(0, 35)}..."` : "RAG Query";
+              const model = l.selected_model || "auto";
+              const dur = l.diagnostics?.total_ms != null ? `${l.diagnostics.total_ms}ms` : "";
+              const guard = l.pii_masked ? " [PII masked]" : "";
+              return `${time} - ${querySnippet} -> Model: ${model} ${dur ? `(${dur})` : ""}${guard}`;
+            });
+            setLiveLogs(formatted);
+          } else {
+            const now = new Date().toTimeString().split(" ")[0];
+            setLiveLogs([
+              `${now} - System initialized and monitoring active.`,
+              `${now} - Multi-provider routing active: Groq (low-latency) | Gemini (reasoning) | Ollama (offline).`,
+              `${now} - Vector index and embedding cache connected. Awaiting chat queries.`,
+            ]);
+          }
+        })
+        .catch(() => {});
+    };
+
+    fetchLogs();
+    const interval = setInterval(fetchLogs, 5000);
     return () => clearInterval(interval);
-  }, [activeTab]);
+  }, [activeTab, token]);
 
   // Users management states
   const [users, setUsers] = useState<any[]>([]);
@@ -471,7 +482,7 @@ export function AdminDashboard({ token }: AdminDashboardProps) {
               <div className="flex justify-between items-center text-xs font-semibold text-zinc-400 uppercase tracking-wider font-sans">
                 <span className="flex items-center gap-1.5"><Database className="w-4 h-4 text-orange-400 shrink-0" /> Local JSON Store</span>
                 <span className={serviceHealth?.storage?.status === "ok" ? "text-emerald-400 font-bold" : "text-red-400 font-bold"}>
-                  {serviceHealth?.storage?.status === "ok" ? "OK" : serviceHealth?.storage?.status ? "ERR" : "—"}
+                  {serviceHealth?.storage?.status === "ok" ? "LIVE" : serviceHealth?.storage?.status ? "ERR" : "—"}
                 </span>
               </div>
               <div className="w-full bg-zinc-950 h-2 rounded-full overflow-hidden border border-zinc-900">
@@ -488,7 +499,7 @@ export function AdminDashboard({ token }: AdminDashboardProps) {
               <div className="flex justify-between items-center text-xs font-semibold text-zinc-400 uppercase tracking-wider font-sans">
                 <span className="flex items-center gap-1.5"><Layers className="w-4 h-4 text-orange-400 shrink-0" /> Redis Cache</span>
                 <span className={serviceHealth?.redis?.status === "ok" ? "text-emerald-400 font-bold" : serviceHealth?.redis?.status === "not_configured" ? "text-zinc-500 font-bold" : "text-red-400 font-bold"}>
-                  {serviceHealth?.redis?.status === "ok" ? "OK" : serviceHealth?.redis?.status === "not_configured" ? "N/A" : serviceHealth?.redis?.status ? "ERR" : "—"}
+                  {serviceHealth?.redis?.status === "ok" ? "LIVE" : serviceHealth?.redis?.status === "not_configured" ? "N/A" : serviceHealth?.redis?.status ? "ERR" : "—"}
                 </span>
               </div>
               <div className="w-full bg-zinc-950 h-2 rounded-full overflow-hidden border border-zinc-900">
@@ -505,7 +516,7 @@ export function AdminDashboard({ token }: AdminDashboardProps) {
               <div className="flex justify-between items-center text-xs font-semibold text-zinc-400 uppercase tracking-wider font-sans">
                 <span className="flex items-center gap-1.5"><Database className="w-4 h-4 text-orange-400 shrink-0" /> Qdrant Vectors</span>
                 <span className={serviceHealth?.qdrant?.status === "ok" ? "text-emerald-400 font-bold" : serviceHealth?.qdrant?.status === "not_configured" ? "text-zinc-500 font-bold" : "text-red-400 font-bold"}>
-                  {serviceHealth?.qdrant?.status === "ok" ? "OK" : serviceHealth?.qdrant?.status === "not_configured" ? "N/A" : serviceHealth?.qdrant?.status ? "ERR" : "—"}
+                  {serviceHealth?.qdrant?.status === "ok" ? "LIVE" : serviceHealth?.qdrant?.status === "not_configured" ? "N/A" : serviceHealth?.qdrant?.status ? "ERR" : "—"}
                 </span>
               </div>
               <div className="w-full bg-zinc-950 h-2 rounded-full overflow-hidden border border-zinc-900">
@@ -522,7 +533,7 @@ export function AdminDashboard({ token }: AdminDashboardProps) {
               <div className="flex justify-between items-center text-xs font-semibold text-zinc-400 uppercase tracking-wider font-sans">
                 <span className="flex items-center gap-1.5"><Activity className="w-4 h-4 text-orange-400 shrink-0" /> Celery Workers</span>
                 <span className={serviceHealth?.celery?.status === "ok" ? "text-emerald-400 font-bold" : serviceHealth?.celery?.status === "not_configured" ? "text-zinc-500 font-bold" : "text-amber-400 font-bold"}>
-                  {serviceHealth?.celery?.status === "ok" ? "OK" : serviceHealth?.celery?.status === "not_configured" ? "N/A" : serviceHealth?.celery?.status === "no_workers" ? "IDLE" : "—"}
+                  {serviceHealth?.celery?.status === "ok" ? "LIVE" : serviceHealth?.celery?.status === "not_configured" ? "N/A" : serviceHealth?.celery?.status === "no_workers" ? "IDLE" : "—"}
                 </span>
               </div>
               <div className="flex items-center gap-1.5 justify-center py-0.5">
@@ -542,7 +553,7 @@ export function AdminDashboard({ token }: AdminDashboardProps) {
               <div className="flex justify-between items-center text-xs font-semibold text-zinc-400 uppercase tracking-wider font-sans">
                 <span className="flex items-center gap-1.5"><Database className="w-4 h-4 text-orange-400 shrink-0" /> Neo4j Graph</span>
                 <span className={serviceHealth?.neo4j?.status === "ok" ? "text-emerald-400 font-bold" : serviceHealth?.neo4j?.status === "not_configured" ? "text-zinc-500 font-bold" : "text-red-400 font-bold"}>
-                  {serviceHealth?.neo4j?.status === "ok" ? "OK" : serviceHealth?.neo4j?.status === "not_configured" ? "N/A" : serviceHealth?.neo4j?.status ? "ERR" : "—"}
+                  {serviceHealth?.neo4j?.status === "ok" ? "LIVE" : serviceHealth?.neo4j?.status === "not_configured" ? "N/A" : serviceHealth?.neo4j?.status ? "ERR" : "—"}
                 </span>
               </div>
               <div className="w-full bg-zinc-950 h-2 rounded-full overflow-hidden border border-zinc-900">
@@ -559,7 +570,7 @@ export function AdminDashboard({ token }: AdminDashboardProps) {
               <div className="flex justify-between items-center text-xs font-semibold text-zinc-400 uppercase tracking-wider font-sans">
                 <span className="flex items-center gap-1.5"><Zap className="w-4 h-4 text-orange-400 shrink-0" /> Groq API</span>
                 <span className={serviceHealth?.groq?.status === "ok" ? "text-emerald-400 font-bold" : serviceHealth?.groq?.status === "not_configured" ? "text-zinc-500 font-bold" : "text-red-400 font-bold"}>
-                  {serviceHealth?.groq?.status === "ok" ? "OK" : serviceHealth?.groq?.status === "not_configured" ? "N/A" : serviceHealth?.groq?.status ? "ERR" : "—"}
+                  {serviceHealth?.groq?.status === "ok" ? "LIVE" : serviceHealth?.groq?.status === "not_configured" ? "N/A" : serviceHealth?.groq?.status ? "ERR" : "—"}
                 </span>
               </div>
               <div className="w-full bg-zinc-950 h-2 rounded-full overflow-hidden border border-zinc-900">
@@ -576,7 +587,7 @@ export function AdminDashboard({ token }: AdminDashboardProps) {
               <div className="flex justify-between items-center text-xs font-semibold text-zinc-400 uppercase tracking-wider font-sans">
                 <span className="flex items-center gap-1.5"><Cpu className="w-4 h-4 text-orange-400 shrink-0" /> Ollama LLM</span>
                 <span className={serviceHealth?.ollama?.status === "ok" ? "text-emerald-400 font-bold" : serviceHealth?.ollama?.status === "not_configured" ? "text-zinc-500 font-bold" : "text-red-400 font-bold"}>
-                  {serviceHealth?.ollama?.status === "ok" ? "OK" : serviceHealth?.ollama?.status === "not_configured" ? "N/A" : serviceHealth?.ollama?.status ? "ERR" : "—"}
+                  {serviceHealth?.ollama?.status === "ok" ? "LIVE" : serviceHealth?.ollama?.status === "not_configured" ? "N/A" : serviceHealth?.ollama?.status ? "ERR" : "—"}
                 </span>
               </div>
               <div className="w-full bg-zinc-950 h-2 rounded-full overflow-hidden border border-zinc-900">
@@ -677,7 +688,7 @@ export function AdminDashboard({ token }: AdminDashboardProps) {
                         : serviceHealth?.qdrant?.status === "not_configured"
                         ? "bg-zinc-500/10 text-zinc-400 border border-zinc-500/20"
                         : "bg-red-500/10 text-red-400 border border-red-500/20"
-                    }`}>{serviceHealth?.qdrant?.status === "ok" ? "ONLINE" : serviceHealth?.qdrant?.status === "not_configured" ? "N/A" : "ERROR"}</span>
+                    }`}>{serviceHealth?.qdrant?.status === "ok" ? "LIVE" : serviceHealth?.qdrant?.status === "not_configured" ? "N/A" : "ERROR"}</span>
                   </div>
                   <div className="text-[11px] text-zinc-400 font-sans space-y-0.5">
                     <p>{serviceHealth?.qdrant?.message ?? `Latency: ${serviceHealth?.qdrant?.latency_ms != null ? `${serviceHealth.qdrant.latency_ms} ms` : "—"}`}</p>
@@ -703,7 +714,7 @@ export function AdminDashboard({ token }: AdminDashboardProps) {
                       serviceHealth?.storage?.status === "ok"
                         ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
                         : "bg-red-500/10 text-red-400 border border-red-500/20"
-                    }`}>{serviceHealth?.storage?.status === "ok" ? "ONLINE" : serviceHealth?.storage?.status ? "ERROR" : "CHECKING"}</span>
+                    }`}>{serviceHealth?.storage?.status === "ok" ? "LIVE" : serviceHealth?.storage?.status ? "ERROR" : "CHECKING"}</span>
                   </div>
                   <div className="text-[11px] text-zinc-400 font-sans space-y-0.5">
                     <p>Read latency: <span className="text-orange-400">{serviceHealth?.storage?.latency_ms != null ? `${serviceHealth.storage.latency_ms} ms` : "—"}</span></p>
@@ -727,7 +738,7 @@ export function AdminDashboard({ token }: AdminDashboardProps) {
                         : serviceHealth?.redis?.status === "not_configured"
                         ? "bg-zinc-500/10 text-zinc-400 border border-zinc-500/20"
                         : "bg-red-500/10 text-red-400 border border-red-500/20"
-                    }`}>{serviceHealth?.redis?.status === "ok" ? "ONLINE" : serviceHealth?.redis?.status === "not_configured" ? "N/A" : "ERROR"}</span>
+                    }`}>{serviceHealth?.redis?.status === "ok" ? "LIVE" : serviceHealth?.redis?.status === "not_configured" ? "N/A" : "ERROR"}</span>
                   </div>
                   <div className="text-[11px] text-zinc-400 font-sans space-y-0.5">
                     <p>{serviceHealth?.redis?.message ?? `Latency: ${serviceHealth?.redis?.latency_ms != null ? `${serviceHealth.redis.latency_ms} ms` : "—"}`}</p>
@@ -745,7 +756,7 @@ export function AdminDashboard({ token }: AdminDashboardProps) {
                     <span className="text-xs font-bold text-zinc-200 font-sans">Background Workers (Celery)</span>
                     <span className={`text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-md font-sans ${
                       serviceHealth?.celery?.status === "ok" ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" : serviceHealth?.celery?.status === "not_configured" ? "bg-zinc-500/10 text-zinc-400 border border-zinc-500/20" : "bg-amber-500/10 text-amber-400 border border-amber-500/20"
-                    }`}>{serviceHealth?.celery?.status === "ok" ? "ACTIVE" : serviceHealth?.celery?.status === "not_configured" ? "N/A" : "IDLE"}</span>
+                    }`}>{serviceHealth?.celery?.status === "ok" ? "LIVE" : serviceHealth?.celery?.status === "not_configured" ? "N/A" : "IDLE"}</span>
                   </div>
                   <div className="text-[11px] text-zinc-400 font-sans space-y-0.5">
                     <p>{serviceHealth?.celery?.message ?? `Workers: ${serviceHealth?.celery?.worker_count ?? "—"} online`}</p>
@@ -763,7 +774,7 @@ export function AdminDashboard({ token }: AdminDashboardProps) {
                     <span className="text-xs font-bold text-zinc-200 font-sans">BM25 Keyword Index</span>
                     <span className={`text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-md font-sans ${
                       serviceHealth?.bm25?.ready ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" : "bg-amber-500/10 text-amber-400 border border-amber-500/20"
-                    }`}>{serviceHealth?.bm25?.ready ? "READY" : serviceHealth?.bm25 ? "EMPTY" : "CHECKING"}</span>
+                    }`}>{serviceHealth?.bm25?.ready ? "LIVE" : serviceHealth?.bm25 ? "EMPTY" : "CHECKING"}</span>
                   </div>
                   <div className="text-[11px] text-zinc-400 font-sans space-y-0.5">
                     <p>Corpus size: <span className="text-orange-400">{serviceHealth?.bm25?.corpus_size?.toLocaleString() ?? "—"} chunks</span></p>
@@ -783,7 +794,7 @@ export function AdminDashboard({ token }: AdminDashboardProps) {
                     <span className="text-xs font-bold text-zinc-200 font-sans">Graph RAG Index</span>
                     <span className={`text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-md font-sans ${
                       serviceHealth?.graph?.ready ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" : serviceHealth?.graph?.configured === false ? "bg-zinc-500/10 text-zinc-400 border border-zinc-500/20" : "bg-amber-500/10 text-amber-400 border border-amber-500/20"
-                    }`}>{serviceHealth?.graph?.ready ? "READY" : serviceHealth?.graph?.configured === false ? "N/A" : "BUILDING"}</span>
+                    }`}>{serviceHealth?.graph?.ready ? "LIVE" : serviceHealth?.graph?.configured === false ? "N/A" : "BUILDING"}</span>
                   </div>
                   <div className="text-[11px] text-zinc-400 font-sans space-y-0.5">
                     <p>Nodes: <span className="text-orange-400">{serviceHealth?.graph?.node_count?.toLocaleString() ?? "—"} chunks</span></p>
@@ -807,7 +818,7 @@ export function AdminDashboard({ token }: AdminDashboardProps) {
                         : serviceHealth?.neo4j?.status === "not_configured"
                         ? "bg-zinc-500/10 text-zinc-400 border border-zinc-500/20"
                         : "bg-red-500/10 text-red-400 border border-red-500/20"
-                    }`}>{serviceHealth?.neo4j?.status === "ok" ? "ONLINE" : serviceHealth?.neo4j?.status === "not_configured" ? "N/A" : "ERROR"}</span>
+                    }`}>{serviceHealth?.neo4j?.status === "ok" ? "LIVE" : serviceHealth?.neo4j?.status === "not_configured" ? "N/A" : "ERROR"}</span>
                   </div>
                   <div className="text-[11px] text-zinc-400 font-sans space-y-0.5">
                     <p>{serviceHealth?.neo4j?.message ?? `Latency: ${serviceHealth?.neo4j?.latency_ms != null ? `${serviceHealth.neo4j.latency_ms} ms` : "—"}`}</p>
@@ -832,7 +843,7 @@ export function AdminDashboard({ token }: AdminDashboardProps) {
                         : serviceHealth?.groq?.status === "not_configured"
                         ? "bg-zinc-500/10 text-zinc-400 border border-zinc-500/20"
                         : "bg-red-500/10 text-red-400 border border-red-500/20"
-                    }`}>{serviceHealth?.groq?.status === "ok" ? "ONLINE" : serviceHealth?.groq?.status === "not_configured" ? "N/A" : "ERROR"}</span>
+                    }`}>{serviceHealth?.groq?.status === "ok" ? "LIVE" : serviceHealth?.groq?.status === "not_configured" ? "N/A" : "ERROR"}</span>
                   </div>
                   <div className="text-[11px] text-zinc-400 font-sans space-y-0.5">
                     <p>{serviceHealth?.groq?.message ?? `Latency: ${serviceHealth?.groq?.latency_ms != null ? `${serviceHealth.groq.latency_ms} ms` : "—"}`}</p>
@@ -857,7 +868,7 @@ export function AdminDashboard({ token }: AdminDashboardProps) {
                         : serviceHealth?.ollama?.status === "not_configured"
                         ? "bg-zinc-500/10 text-zinc-400 border border-zinc-500/20"
                         : "bg-red-500/10 text-red-400 border border-red-500/20"
-                    }`}>{serviceHealth?.ollama?.status === "ok" ? "ONLINE" : serviceHealth?.ollama?.status === "not_configured" ? "N/A" : "ERROR"}</span>
+                    }`}>{serviceHealth?.ollama?.status === "ok" ? "LIVE" : serviceHealth?.ollama?.status === "not_configured" ? "N/A" : "ERROR"}</span>
                   </div>
                   <div className="text-[11px] text-zinc-400 font-sans space-y-0.5">
                     <p>{serviceHealth?.ollama?.message ?? `Latency: ${serviceHealth?.ollama?.latency_ms != null ? `${serviceHealth.ollama.latency_ms} ms` : "—"}`}</p>
@@ -977,7 +988,7 @@ export function AdminDashboard({ token }: AdminDashboardProps) {
       {/* 1. ANALYTICS TAB */}
       {activeTab === "analytics" && (
         <>
-          <div className="stats-grid grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
+          <div className="stats-grid grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-8 gap-4 mb-6">
             <div className="stat-card bg-zinc-900/20 border border-zinc-900 p-4 rounded-2xl flex flex-col gap-1.5 shadow-md">
               <span className="stat-label text-xs font-semibold text-zinc-500 uppercase tracking-wider flex items-center gap-1">
                 <Users className="w-3 h-3 text-orange-400" /> Total Users

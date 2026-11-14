@@ -110,7 +110,7 @@ class ConversationService:
             self.repo.update_session_summary(session.id, summary)
             logger.info("session_summarized", session_id=session.id)
         except Exception as exc:
-            logger.warning("summarization_failed", error=str(exc))
+            logger.warning("summarization_failed", error_type=type(exc).__name__)
 
     def get_user_sessions(self, user_id: int, skip: int = 0, limit: int = 20):
         return self.repo.get_user_sessions(user_id, skip, limit)

@@ -64,7 +64,7 @@ class CacheService:
             logger.debug("Cache MISS for user=%d", user_id)
             return None
         except Exception as exc:
-            logger.warning("Cache get failed: %s", exc)
+            logger.warning("Cache get failed: %s", type(exc).__name__)
             return None
 
     def set(
@@ -85,7 +85,7 @@ class CacheService:
             )
             return True
         except Exception as exc:
-            logger.warning("Cache set failed: %s", exc)
+            logger.warning("Cache set failed: %s", type(exc).__name__)
             return False
 
     def invalidate_user(self, user_id: int) -> int:
@@ -97,7 +97,7 @@ class CacheService:
                 return self.client.delete(*keys)
             return 0
         except Exception as exc:
-            logger.warning("Cache invalidate failed: %s", exc)
+            logger.warning("Cache invalidate failed: %s", type(exc).__name__)
             return 0
 
     def get_stats(self) -> Dict[str, Any]:

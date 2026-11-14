@@ -355,8 +355,7 @@ class GraphRetriever:
             retrieved.append(chunk)
 
         logger.info(
-            "GraphRetriever: query=%r → %d seeds → %d final chunks",
-            request.query[:50],
+            "GraphRetriever: %d seeds → %d final chunks",
             len(seed_scores),
             len(retrieved),
         )

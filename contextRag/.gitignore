@@ -5,14 +5,22 @@ __pycache__/
 *.pyd
 .env
 .env.*
+!.env.example
 
 # Virtual environment
 venv/
 .venv/
 
-# Data
+# Data & Storage
 uploads/
 storage/
+evaluation/results/
+evaluation/reports/*.csv
+
+# Temporary & Backups
+*.backup*
+*.tmp
+*.log
 
 # OS
 .DS_Store

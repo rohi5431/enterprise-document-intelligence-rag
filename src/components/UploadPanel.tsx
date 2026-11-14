@@ -16,7 +16,7 @@ export type FileUploadState = {
   message?: string;
 };
 
-const ACCEPTED_TYPES = ".pdf,.docx,.txt,.md,.png,.jpg,.jpeg,.tiff,.bmp,.webp";
+const ACCEPTED_TYPES = ".pdf,.docx,.doc,.xlsx,.xls,.pptx,.ppt,.txt,.md,.csv,.tsv,.html,.htm,.json,.png,.jpg,.jpeg,.tiff,.tif,.bmp,.webp";
 
 export function useComposerUpload(token: string, onUploadComplete?: () => void) {
   const fileInputRef = useRef<HTMLInputElement>(null);

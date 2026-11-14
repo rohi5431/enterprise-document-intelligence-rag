@@ -12,7 +12,11 @@ from app.core.security import hash_password
 
 
 @pytest.fixture(name="auth_headers")
-def fixture_auth_headers(db: Session, client: TestClient) -> dict[str, str]:
+def fixture_auth_headers(
+    db: Session,
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> dict[str, str]:
     # Seed user in DB
     user = User(
         email="apiuser@rag.com",
@@ -22,6 +26,20 @@ def fixture_auth_headers(db: Session, client: TestClient) -> dict[str, str]:
     )
     db.add(user)
     db.commit()
+
+    class FakeRagPipeline:
+        def run(self, query: str, **kwargs):
+            return {
+                "answer": "Isolated test response",
+                "sources": [],
+                "cache_hit": False,
+                "retrieval_meta": {"latency_ms": {}},
+            }
+
+    monkeypatch.setattr(
+        "app.api.v1.chat.get_rag_pipeline",
+        lambda: FakeRagPipeline(),
+    )
 
     # Login via API
     resp = client.post(

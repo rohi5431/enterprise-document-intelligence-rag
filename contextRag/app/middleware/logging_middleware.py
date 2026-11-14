@@ -31,7 +31,7 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
             logger.error(
                 "request_error",
                 request_id=request_id,
-                error=str(exc),
+                error_type=type(exc).__name__,
                 elapsed_ms=round(elapsed, 2),
             )
             raise

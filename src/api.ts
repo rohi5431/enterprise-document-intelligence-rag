@@ -10,6 +10,7 @@ import type {
   User,
   UserPreferences,
   MessageResponse,
+  BatchUploadResult,
 } from "./types";
 
 const API_BASE_URL = "/api/v1";
@@ -450,4 +451,40 @@ export async function apiSyncQdrant(token: string): Promise<{ success: boolean; 
 
 export async function apiGetAdminApiKeyStatus(token: string): Promise<AdminApiKeyStatus> {
   return request("/admin/api-key-status", { headers: authHeaders(token) });
+}
+
+
+// 16) Multimodal Batch & Clipboard Ingestion
+export async function apiBatchUploadDocuments(
+  token: string,
+  files: File[]
+): Promise<BatchUploadResult> {
+  const form = new FormData();
+  for (const file of files) {
+    form.append("files", file);
+  }
+  return request("/documents/batch-upload", {
+    method: "POST",
+    headers: authHeaders(token),
+    body: form,
+  });
+}
+
+export async function apiPasteClipboard(
+  token: string,
+  payload: { text?: string; html?: string; image_base64?: string; title?: string }
+): Promise<DocumentSummary> {
+  return request("/documents/paste-clipboard", {
+    method: "POST",
+    headers: authHeaders(token),
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function apiGetBatchJobs(token: string): Promise<any> {
+  return request("/documents/batch-jobs", { headers: authHeaders(token) });
+}
+
+export async function apiGetBatchJob(token: string, id: string): Promise<any> {
+  return request(`/documents/batch-jobs/${id}`, { headers: authHeaders(token) });
 }

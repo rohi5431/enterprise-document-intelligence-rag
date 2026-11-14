@@ -1,0 +1,57 @@
+ENTERPRISE RAG PLATFORM - API REFERENCE SUMMARY
+
+AUTHENTICATION ENDPOINTS:
+- POST /api/v1/auth/register - Register new user, returns UserResponse with role='user'
+- POST /api/v1/auth/login - Login with email/password, returns TokenResponse with access_token and refresh_token
+- POST /api/v1/auth/refresh - Refresh access token using refresh_token
+- GET /api/v1/auth/me - Get current user profile (requires Bearer token)
+
+DOCUMENT ENDPOINTS (admin only for upload/delete):
+- POST /api/v1/documents/upload - Upload document (admin only). Fields: file, title (optional), tags (optional)
+- GET /api/v1/documents/ - List documents with optional search parameter
+- GET /api/v1/documents/{id} - Get document details
+- DELETE /api/v1/documents/{id} - Delete document and its vectors (admin or owner)
+- GET /api/v1/documents/{id}/status - Get processing status (pending/processing/completed/failed)
+- GET /api/v1/documents/{id}/chunks - List document chunks (paginated)
+- GET /api/v1/documents/{id}/chunks/{chunk_id} - Get individual chunk content
+
+CHAT ENDPOINTS:
+- POST /api/v1/chat/message - Send message, returns ChatResponse with answer, sources, citations
+- POST /api/v1/chat/message/stream - Send message with SSE streaming response
+- GET /api/v1/chat/sessions - List user's chat sessions
+- GET /api/v1/chat/sessions/{id}/messages - Get messages in a session
+
+SEARCH ENDPOINTS:
+- GET /api/v1/search/?q=query&top_k=10 - Semantic search returning relevant chunks with scores
+
+FEEDBACK ENDPOINTS:
+- POST /api/v1/feedback/ - Submit feedback for a chat response
+- GET /api/v1/feedback/{id} - Get feedback by ID (owner or admin only)
+- PUT /api/v1/feedback/{id} - Update feedback (owner or admin only)
+
+ADMIN ENDPOINTS (admin only):
+- GET /api/v1/admin/stats - Platform statistics
+- GET /api/v1/admin/users - Paginated user list
+- GET /api/v1/admin/documents - Paginated document list
+- GET /api/v1/admin/queries - Query log
+- GET /api/v1/admin/analytics - Performance analytics
+- GET /api/v1/admin/analytics/timeseries - Timeseries data
+
+SETTINGS ENDPOINTS:
+- GET /api/v1/settings/preferences - Get user preferences
+- PUT /api/v1/settings/preferences - Update user preferences
+
+HEALTH ENDPOINTS:
+- GET / - Service info
+- GET /health - Health check with database, Redis, and Qdrant status
+
+ERROR RESPONSES:
+- 400 Bad Request - Invalid input
+- 401 Unauthorized - Missing or invalid JWT token
+- 403 Forbidden - Access denied (not owner or not admin)
+- 404 Not Found - Resource not found (also used to conceal unauthorized resources)
+- 409 Conflict - Duplicate document or account
+- 413 Payload Too Large - File exceeds 50 MB limit
+- 422 Unprocessable Entity - Validation error
+- 429 Too Many Requests - Rate limit exceeded
+- 503 Service Unavailable - Redis unavailable during rate limiting

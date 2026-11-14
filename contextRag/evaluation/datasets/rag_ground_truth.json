@@ -1,0 +1,452 @@
+{
+  "dataset_version": "1.0.0",
+  "created_at": "2026-11-09T23:05:00Z",
+  "description": "Verified Ground-Truth Dataset for ContextRag RAG Quality Evaluation & Benchmarking",
+  "total_questions": 25,
+  "corpus_documents": [
+    {
+      "doc_id": 1,
+      "filename": "doc1_rag_overview.txt",
+      "title": "Retrieval-Augmented Generation (RAG) Overview",
+      "path": "evaluation/test_docs/doc1_rag_overview.txt"
+    },
+    {
+      "doc_id": 2,
+      "filename": "doc2_system_architecture.txt",
+      "title": "ContextRag System Architecture",
+      "path": "evaluation/test_docs/doc2_system_architecture.txt"
+    },
+    {
+      "doc_id": 3,
+      "filename": "doc3_api_reference.txt",
+      "title": "Enterprise RAG Platform - API Reference Summary",
+      "path": "evaluation/test_docs/doc3_api_reference.txt"
+    }
+  ],
+  "questions": [
+    {
+      "id": "Q01",
+      "category": "Direct factual",
+      "query": "What is Retrieval-Augmented Generation?",
+      "answerable": true,
+      "relevant_doc_ids": [1],
+      "relevant_doc_names": ["doc1_rag_overview.txt"],
+      "expected_answer": "Retrieval-Augmented Generation (RAG) is an AI framework that combines the strengths of large language models with information retrieval systems, augmenting generation with relevant documents retrieved from an external knowledge base rather than relying solely on parametric knowledge.",
+      "expected_answer_facts": [
+        "Combines LLMs with information retrieval systems",
+        "Augments generation with relevant documents from an external knowledge base",
+        "Does not rely solely on parametric knowledge encoded during training"
+      ],
+      "expected_supporting_passage": "Retrieval-Augmented Generation (RAG) is an AI framework that combines the strengths of large language models with information retrieval systems. Instead of relying solely on the parametric knowledge encoded in a language model during training, RAG augments the generation process with relevant documents retrieved from an external knowledge base.",
+      "expected_citations": ["doc1_rag_overview.txt"],
+      "verification_status": "VERIFIED"
+    },
+    {
+      "id": "Q02",
+      "category": "Direct factual",
+      "query": "What is the embedding model used in ContextRag?",
+      "answerable": true,
+      "relevant_doc_ids": [2],
+      "relevant_doc_names": ["doc2_system_architecture.txt"],
+      "expected_answer": "ContextRag uses the BAAI/bge-small-en-v1.5 sentence transformer model, generating 384-dimensional embeddings running on CPU with a batch size of 32.",
+      "expected_answer_facts": [
+        "Model identifier: BAAI/bge-small-en-v1.5",
+        "Embedding dimension: 384",
+        "Execution hardware: CPU",
+        "Embedding batch size: 32"
+      ],
+      "expected_supporting_passage": "The BAAI/bge-small-en-v1.5 sentence transformer model generates 384-dimensional embeddings. The model runs on CPU. Batch size for embedding is 32.",
+      "expected_citations": ["doc2_system_architecture.txt"],
+      "verification_status": "VERIFIED"
+    },
+    {
+      "id": "Q03",
+      "category": "Direct factual",
+      "query": "What is the maximum file size for document uploads?",
+      "answerable": true,
+      "relevant_doc_ids": [2],
+      "relevant_doc_names": ["doc2_system_architecture.txt"],
+      "expected_answer": "The maximum file size for uploads in ContextRag is 50 MB.",
+      "expected_answer_facts": [
+        "Maximum file size is 50 MB"
+      ],
+      "expected_supporting_passage": "Maximum file size is 50 MB. Files are stored with server-generated UUID names in uploads/docs directory.",
+      "expected_citations": ["doc2_system_architecture.txt"],
+      "verification_status": "VERIFIED"
+    },
+    {
+      "id": "Q04",
+      "category": "Direct factual",
+      "query": "Which port does the FastAPI backend run on?",
+      "answerable": true,
+      "relevant_doc_ids": [2],
+      "relevant_doc_names": ["doc2_system_architecture.txt"],
+      "expected_answer": "FastAPI runs on uvicorn at port 8000.",
+      "expected_answer_facts": [
+        "Backend framework: FastAPI",
+        "Server: uvicorn",
+        "Port: 8000"
+      ],
+      "expected_supporting_passage": "FastAPI (Python) serves as the authoritative REST API backend, running on uvicorn at port 8000. The API prefix is /api/v1.",
+      "expected_citations": ["doc2_system_architecture.txt"],
+      "verification_status": "VERIFIED"
+    },
+    {
+      "id": "Q05",
+      "category": "Direct factual",
+      "query": "What HTTP status code is returned for an invalid JWT token?",
+      "answerable": true,
+      "relevant_doc_ids": [3],
+      "relevant_doc_names": ["doc3_api_reference.txt"],
+      "expected_answer": "An invalid or missing JWT token returns HTTP 401 Unauthorized.",
+      "expected_answer_facts": [
+        "HTTP status code: 401",
+        "Status text: Unauthorized",
+        "Reason: Missing or invalid JWT token"
+      ],
+      "expected_supporting_passage": "401 Unauthorized - Missing or invalid JWT token",
+      "expected_citations": ["doc3_api_reference.txt"],
+      "verification_status": "VERIFIED"
+    },
+    {
+      "id": "Q06",
+      "category": "Direct factual",
+      "query": "What is Reciprocal Rank Fusion (RRF)?",
+      "answerable": true,
+      "relevant_doc_ids": [1],
+      "relevant_doc_names": ["doc1_rag_overview.txt"],
+      "expected_answer": "Reciprocal Rank Fusion (RRF) is a method used in hybrid retrieval to fuse and rank candidate results from dense vector search and sparse BM25 keyword search.",
+      "expected_answer_facts": [
+        "Fuses results from dense vector search and sparse BM25 search",
+        "Combines rankings from multiple retrievers"
+      ],
+      "expected_supporting_passage": "HYBRID RETRIEVAL combines dense vector search (semantic similarity) with sparse BM25 keyword search to improve recall. Results from both methods are fused using Reciprocal Rank Fusion (RRF) or linear weighting.",
+      "expected_citations": ["doc1_rag_overview.txt"],
+      "verification_status": "VERIFIED"
+    },
+    {
+      "id": "Q07",
+      "category": "Direct factual",
+      "query": "What is the Qdrant collection name used for storing vectors?",
+      "answerable": true,
+      "relevant_doc_ids": [2],
+      "relevant_doc_names": ["doc2_system_architecture.txt"],
+      "expected_answer": "The Qdrant collection name is 'rag_documents'.",
+      "expected_answer_facts": [
+        "Collection name is 'rag_documents'",
+        "Vector size is 384 with COSINE distance"
+      ],
+      "expected_supporting_passage": "Qdrant stores document chunk embeddings. The collection name is 'rag_documents'. Vector size is 384 (matching BAAI/bge-small-en-v1.5). Distance metric is COSINE.",
+      "expected_citations": ["doc2_system_architecture.txt"],
+      "verification_status": "VERIFIED"
+    },
+    {
+      "id": "Q08",
+      "category": "Direct factual",
+      "query": "What is the access token expiry time in ContextRag?",
+      "answerable": true,
+      "relevant_doc_ids": [2],
+      "relevant_doc_names": ["doc2_system_architecture.txt"],
+      "expected_answer": "JWT access tokens expire in 30 minutes, and refresh tokens expire in 7 days.",
+      "expected_answer_facts": [
+        "Access token expiry: 30 minutes",
+        "Refresh token expiry: 7 days",
+        "Token algorithm: HS256"
+      ],
+      "expected_supporting_passage": "SECURITY: JWT tokens with HS256 algorithm. Access tokens expire in 30 minutes. Refresh tokens expire in 7 days.",
+      "expected_citations": ["doc2_system_architecture.txt"],
+      "verification_status": "VERIFIED"
+    },
+    {
+      "id": "Q09",
+      "category": "Multi-passage reasoning",
+      "query": "How does the complete RAG query pipeline work from user query to answer generation?",
+      "answerable": true,
+      "relevant_doc_ids": [1, 2],
+      "relevant_doc_names": ["doc1_rag_overview.txt", "doc2_system_architecture.txt"],
+      "expected_answer": "When a query is received, it is embedded using the sentence transformer model into a 384-dimensional vector; the system executes hybrid retrieval (dense Qdrant search + sparse BM25), fuses candidate chunks using RRF, reranks chunks using a cross-encoder, constructs context, and generates an answer with citations using Ollama (llama3).",
+      "expected_answer_facts": [
+        "Query embedding via 384-dimensional model",
+        "Hybrid search combining Qdrant dense vector search and BM25",
+        "Result fusion via Reciprocal Rank Fusion (RRF)",
+        "Two-stage cross-encoder reranking",
+        "LLM generation via Ollama (llama3) with citation extraction"
+      ],
+      "expected_supporting_passage": "When a user query is received, the system embeds the query into a vector representation and searches a document vector store... HYBRID RETRIEVAL combines dense vector search with sparse BM25 keyword search... RERANKING uses a cross-encoder model... The language model receives the user query concatenated with the retrieved context and generates an answer.",
+      "expected_citations": ["doc1_rag_overview.txt", "doc2_system_architecture.txt"],
+      "verification_status": "VERIFIED"
+    },
+    {
+      "id": "Q10",
+      "category": "Multi-passage reasoning",
+      "query": "What databases does ContextRag use and what are their respective responsibilities?",
+      "answerable": true,
+      "relevant_doc_ids": [2],
+      "relevant_doc_names": ["doc2_system_architecture.txt"],
+      "expected_answer": "ContextRag uses three primary data stores: PostgreSQL for relational data (users, documents, chunks, chat sessions, messages, feedback), Redis for multi-database caching, rate limiting, and Celery brokering, and Qdrant for storing 384-dimensional vector embeddings with cosine similarity.",
+      "expected_answer_facts": [
+        "PostgreSQL stores users, documents, chunks, sessions, messages, feedback, and versions",
+        "Redis handles query caching (db 1), sessions (db 2), job status (db 3), and Celery broker (db 4)",
+        "Qdrant vector database stores chunk embeddings in collection 'rag_documents'"
+      ],
+      "expected_supporting_passage": "PostgreSQL stores relational data including users, documents, chunks, chat sessions, messages, feedback, and document versions... Redis is used for query result caching, session caching, job status, and Celery broker... Qdrant stores document chunk embeddings.",
+      "expected_citations": ["doc2_system_architecture.txt"],
+      "verification_status": "VERIFIED"
+    },
+    {
+      "id": "Q11",
+      "category": "Multi-passage reasoning",
+      "query": "What security controls and restrictions are applied to document uploads?",
+      "answerable": true,
+      "relevant_doc_ids": [2, 3],
+      "relevant_doc_names": ["doc2_system_architecture.txt", "doc3_api_reference.txt"],
+      "expected_answer": "Uploads are restricted to admin users, enforce a strict 50 MB maximum size limit, validate supported extensions (PDF, TXT, DOCX, MD, PNG, JPG, JPEG, TIFF), store files under server-generated UUID names in uploads/docs, and return HTTP 413 Payload Too Large if size is exceeded.",
+      "expected_answer_facts": [
+        "Upload is admin-only via POST /api/v1/documents/upload",
+        "Maximum file size limit is 50 MB",
+        "Server-generated UUID filenames in uploads/docs directory",
+        "HTTP 413 Payload Too Large on oversized input"
+      ],
+      "expected_supporting_passage": "UPLOAD: Supported file types are PDF, TXT, DOCX, MD, PNG, JPG, JPEG, TIFF. Maximum file size is 50 MB. Files are stored with server-generated UUID names in uploads/docs directory... POST /api/v1/documents/upload - Upload document (admin only)... 413 Payload Too Large - File exceeds 50 MB limit",
+      "expected_citations": ["doc2_system_architecture.txt", "doc3_api_reference.txt"],
+      "verification_status": "VERIFIED"
+    },
+    {
+      "id": "Q12",
+      "category": "Multi-passage reasoning",
+      "query": "How does the ContextRag API signal unauthorized access versus missing resources?",
+      "answerable": true,
+      "relevant_doc_ids": [3],
+      "relevant_doc_names": ["doc3_api_reference.txt"],
+      "expected_answer": "The API returns 401 Unauthorized for missing or invalid JWT tokens, 403 Forbidden when a user attempts an operation without required permissions (such as non-admin accessing admin routes), and 404 Not Found to conceal unauthorized resources so unauthorized users cannot detect their existence.",
+      "expected_answer_facts": [
+        "401 Unauthorized for missing/invalid JWT tokens",
+        "403 Forbidden for insufficient permissions (non-owner, non-admin)",
+        "404 Not Found used both for missing items and to conceal unauthorized resources"
+      ],
+      "expected_supporting_passage": "401 Unauthorized - Missing or invalid JWT token... 403 Forbidden - Access denied (not owner or not admin)... 404 Not Found - Resource not found (also used to conceal unauthorized resources)",
+      "expected_citations": ["doc3_api_reference.txt"],
+      "verification_status": "VERIFIED"
+    },
+    {
+      "id": "Q13",
+      "category": "Cross-document",
+      "query": "What vector dimension does the BGE embedding model produce and how is Qdrant configured to match it?",
+      "answerable": true,
+      "relevant_doc_ids": [1, 2],
+      "relevant_doc_names": ["doc1_rag_overview.txt", "doc2_system_architecture.txt"],
+      "expected_answer": "The BAAI/bge-small-en-v1.5 embedding model produces 384-dimensional dense vectors; Qdrant is configured with vector size 384 and COSINE distance metric in the 'rag_documents' collection.",
+      "expected_answer_facts": [
+        "Embedding dimension is 384 (from BAAI/bge-small-en-v1.5)",
+        "Qdrant collection 'rag_documents' vector size is configured as 384",
+        "Similarity metric is COSINE"
+      ],
+      "expected_supporting_passage": "The embedding dimension for this model is 384... Qdrant stores document chunk embeddings. The collection name is 'rag_documents'. Vector size is 384 (matching BAAI/bge-small-en-v1.5). Distance metric is COSINE.",
+      "expected_citations": ["doc1_rag_overview.txt", "doc2_system_architecture.txt"],
+      "verification_status": "VERIFIED"
+    },
+    {
+      "id": "Q14",
+      "category": "Cross-document",
+      "query": "Which operations and endpoints are strictly restricted to admin users?",
+      "answerable": true,
+      "relevant_doc_ids": [2, 3],
+      "relevant_doc_names": ["doc2_system_architecture.txt", "doc3_api_reference.txt"],
+      "expected_answer": "Admin-restricted operations include document upload (POST /api/v1/documents/upload), document deletion for unowned documents, and all admin endpoints under /api/v1/admin/ (stats, users, documents, queries, analytics, timeseries).",
+      "expected_answer_facts": [
+        "Document upload is admin-only",
+        "Document deletion (DELETE /api/v1/documents/{id}) requires admin or owner",
+        "Admin endpoints (/api/v1/admin/*) require admin role"
+      ],
+      "expected_supporting_passage": "Upload is admin-only... DOCUMENT ENDPOINTS (admin only for upload/delete)... ADMIN ENDPOINTS (admin only): GET /api/v1/admin/stats, GET /api/v1/admin/users, GET /api/v1/admin/documents...",
+      "expected_citations": ["doc2_system_architecture.txt", "doc3_api_reference.txt"],
+      "verification_status": "VERIFIED"
+    },
+    {
+      "id": "Q15",
+      "category": "Unanswerable",
+      "query": "What is the GPU memory requirement for running the embedding model in ContextRag?",
+      "answerable": false,
+      "relevant_doc_ids": [],
+      "relevant_doc_names": [],
+      "expected_answer": "The provided documentation does not contain information on GPU memory requirements. In fact, the documentation states that the embedding model runs on CPU.",
+      "expected_answer_facts": [
+        "Information is not present in the corpus",
+        "Corpus specifies the model runs on CPU, not GPU",
+        "System must refuse or state absence of info, not hallucinate VRAM requirements"
+      ],
+      "expected_supporting_passage": "The model runs on CPU.",
+      "expected_citations": [],
+      "verification_status": "VERIFIED"
+    },
+    {
+      "id": "Q16",
+      "category": "Unanswerable",
+      "query": "How does ContextRag handle GDPR compliance and user data deletion requests?",
+      "answerable": false,
+      "relevant_doc_ids": [],
+      "relevant_doc_names": [],
+      "expected_answer": "The documentation does not provide details regarding GDPR compliance, data retention policies, or formal right-to-be-forgotten deletion workflows.",
+      "expected_answer_facts": [
+        "Information is absent from the corpus",
+        "System should state insufficient evidence rather than invent policies"
+      ],
+      "expected_supporting_passage": "",
+      "expected_citations": [],
+      "verification_status": "VERIFIED"
+    },
+    {
+      "id": "Q17",
+      "category": "Unanswerable",
+      "query": "What is the monthly production hosting cost or pricing tier for ContextRag?",
+      "answerable": false,
+      "relevant_doc_ids": [],
+      "relevant_doc_names": [],
+      "expected_answer": "The documentation contains no financial, cost, pricing, or subscription information.",
+      "expected_answer_facts": [
+        "No pricing or cost data in corpus",
+        "System must not fabricate costs"
+      ],
+      "expected_supporting_passage": "",
+      "expected_citations": [],
+      "verification_status": "VERIFIED"
+    },
+    {
+      "id": "Q18",
+      "category": "Unanswerable",
+      "query": "Which graph database is used for knowledge graph storage in ContextRag?",
+      "answerable": false,
+      "relevant_doc_ids": [],
+      "relevant_doc_names": [],
+      "expected_answer": "The system architecture documentation lists PostgreSQL, Redis, and Qdrant; no standalone graph database (such as Neo4j) is documented.",
+      "expected_answer_facts": [
+        "No graph database is specified in the system documentation",
+        "System must acknowledge absence of graph database documentation"
+      ],
+      "expected_supporting_passage": "",
+      "expected_citations": [],
+      "verification_status": "VERIFIED"
+    },
+    {
+      "id": "Q19",
+      "category": "Ambiguous",
+      "query": "How are tokens handled in ContextRag?",
+      "answerable": true,
+      "relevant_doc_ids": [1, 2],
+      "relevant_doc_names": ["doc1_rag_overview.txt", "doc2_system_architecture.txt"],
+      "expected_answer": "The term 'tokens' applies to two separate subsystems in ContextRag: (1) JWT authentication tokens (HS256 access tokens expiring in 30 minutes, refresh tokens in 7 days), and (2) text chunking tokens where documents are segmented into 300-token chunks with a 50-token overlap.",
+      "expected_answer_facts": [
+        "Authentication tokens: JWT with HS256, 30 min access, 7 day refresh",
+        "Text chunking tokens: 300 tokens per chunk with 50-token overlap"
+      ],
+      "expected_supporting_passage": "CHUNKING is the process of splitting documents into manageable pieces (e.g. 300 tokens with 50-token overlap)... SECURITY: JWT tokens with HS256 algorithm. Access tokens expire in 30 minutes. Refresh tokens expire in 7 days.",
+      "expected_citations": ["doc1_rag_overview.txt", "doc2_system_architecture.txt"],
+      "verification_status": "VERIFIED"
+    },
+    {
+      "id": "Q20",
+      "category": "Ambiguous",
+      "query": "What is the expiration or timeout policy in ContextRag?",
+      "answerable": true,
+      "relevant_doc_ids": [2],
+      "relevant_doc_names": ["doc2_system_architecture.txt"],
+      "expected_answer": "ContextRag defines timeout and expiration at multiple layers: access tokens expire in 30 minutes, refresh tokens expire in 7 days, and Redis query result cache entries have a TTL of 600 seconds.",
+      "expected_answer_facts": [
+        "Access token expiry: 30 minutes",
+        "Refresh token expiry: 7 days",
+        "Redis query cache TTL: 600 seconds"
+      ],
+      "expected_supporting_passage": "The cache TTL for queries is 600 seconds... Access tokens expire in 30 minutes. Refresh tokens expire in 7 days.",
+      "expected_citations": ["doc2_system_architecture.txt"],
+      "verification_status": "VERIFIED"
+    },
+    {
+      "id": "Q21",
+      "category": "Exact technical details",
+      "query": "What exact chunking configuration, embedding model, and vector distance metric are configured in ContextRag?",
+      "answerable": true,
+      "relevant_doc_ids": [1, 2],
+      "relevant_doc_names": ["doc1_rag_overview.txt", "doc2_system_architecture.txt"],
+      "expected_answer": "The chunking configuration is 300 tokens with 50-token overlap; the embedding model is BAAI/bge-small-en-v1.5 producing 384 dimensions on CPU with batch size 32; and the Qdrant distance metric is COSINE.",
+      "expected_answer_facts": [
+        "Chunk size: 300 tokens",
+        "Chunk overlap: 50 tokens",
+        "Embedding model: BAAI/bge-small-en-v1.5 (384 dimensions, batch size 32, CPU)",
+        "Vector distance metric: COSINE"
+      ],
+      "expected_supporting_passage": "CHUNKING is the process of splitting documents into manageable pieces (e.g. 300 tokens with 50-token overlap)... BAAI/bge-small-en-v1.5 sentence transformer model generates 384-dimensional embeddings... Distance metric is COSINE.",
+      "expected_citations": ["doc1_rag_overview.txt", "doc2_system_architecture.txt"],
+      "verification_status": "VERIFIED"
+    },
+    {
+      "id": "Q22",
+      "category": "Exact technical details",
+      "query": "What algorithm and expiration durations are used for JSON Web Tokens in ContextRag?",
+      "answerable": true,
+      "relevant_doc_ids": [2],
+      "relevant_doc_names": ["doc2_system_architecture.txt"],
+      "expected_answer": "JSON Web Tokens use the HS256 algorithm; access tokens expire in 30 minutes and refresh tokens expire in 7 days.",
+      "expected_answer_facts": [
+        "Algorithm: HS256",
+        "Access token expiration: 30 minutes",
+        "Refresh token expiration: 7 days"
+      ],
+      "expected_supporting_passage": "SECURITY: JWT tokens with HS256 algorithm. Access tokens expire in 30 minutes. Refresh tokens expire in 7 days.",
+      "expected_citations": ["doc2_system_architecture.txt"],
+      "verification_status": "VERIFIED"
+    },
+    {
+      "id": "Q23",
+      "category": "Exact technical details",
+      "query": "What are the four separate Redis databases used for in ContextRag?",
+      "answerable": true,
+      "relevant_doc_ids": [2],
+      "relevant_doc_names": ["doc2_system_architecture.txt"],
+      "expected_answer": "Redis database 1 is used for query result caching (TTL 600s), database 2 for session caching, database 3 for job status, and database 4 as the Celery task broker.",
+      "expected_answer_facts": [
+        "Database 1: query result caching (TTL 600 seconds)",
+        "Database 2: session caching",
+        "Database 3: job status tracking",
+        "Database 4: Celery task queue broker"
+      ],
+      "expected_supporting_passage": "Redis is used for query result caching (database 1), session caching (database 2), job status (database 3), and Celery broker (database 4). The cache TTL for queries is 600 seconds.",
+      "expected_citations": ["doc2_system_architecture.txt"],
+      "verification_status": "VERIFIED"
+    },
+    {
+      "id": "Q24",
+      "category": "Multiple citations",
+      "query": "Where are uploaded files physically stored on disk and which endpoints allow inspecting their processing status and chunk text?",
+      "answerable": true,
+      "relevant_doc_ids": [2, 3],
+      "relevant_doc_names": ["doc2_system_architecture.txt", "doc3_api_reference.txt"],
+      "expected_answer": "Uploaded files are stored with server-generated UUID names in the 'uploads/docs' directory. Their status is inspected via GET /api/v1/documents/{id}/status, chunk lists via GET /api/v1/documents/{id}/chunks, and individual chunk text via GET /api/v1/documents/{id}/chunks/{chunk_id}.",
+      "expected_answer_facts": [
+        "Stored in uploads/docs directory with server-generated UUID filenames",
+        "Status inspected via GET /api/v1/documents/{id}/status",
+        "Chunk list via GET /api/v1/documents/{id}/chunks",
+        "Chunk content via GET /api/v1/documents/{id}/chunks/{chunk_id}"
+      ],
+      "expected_supporting_passage": "Files are stored with server-generated UUID names in uploads/docs directory... GET /api/v1/documents/{id}/status - Get processing status... GET /api/v1/documents/{id}/chunks - List document chunks... GET /api/v1/documents/{id}/chunks/{chunk_id} - Get individual chunk content",
+      "expected_citations": ["doc2_system_architecture.txt", "doc3_api_reference.txt"],
+      "verification_status": "VERIFIED"
+    },
+    {
+      "id": "Q25",
+      "category": "Multiple citations",
+      "query": "How does ContextRag enforce multi-tenant isolation across the vector store, relational database, and API layers?",
+      "answerable": true,
+      "relevant_doc_ids": [1, 2, 3],
+      "relevant_doc_names": ["doc1_rag_overview.txt", "doc2_system_architecture.txt", "doc3_api_reference.txt"],
+      "expected_answer": "Multi-tenancy is enforced at three tiers: Qdrant metadata filters ensure chunk retrieval is isolated per user (Doc 1); PostgreSQL stores owner associations on documents, sessions, and messages validated against authenticated JWT claims (Doc 2); and the API returns 403 Forbidden or 404 Not Found to conceal unauthorized user resources (Doc 3).",
+      "expected_answer_facts": [
+        "Qdrant vector filters prevent cross-user chunk access",
+        "PostgreSQL and JWT authentication enforce document and session ownership",
+        "API layer returns 403 Forbidden or 404 Not Found to conceal unauthorized resources"
+      ],
+      "expected_supporting_passage": "MULTI-TENANCY ensures that each user's documents and retrieval results are isolated. Qdrant filters and database ownership checks prevent cross-user data access... PostgreSQL stores relational data including users, documents... 403 Forbidden - Access denied... 404 Not Found - Resource not found (also used to conceal unauthorized resources)",
+      "expected_citations": ["doc1_rag_overview.txt", "doc2_system_architecture.txt", "doc3_api_reference.txt"],
+      "verification_status": "VERIFIED"
+    }
+  ]
+}

@@ -36,8 +36,9 @@ class GeminiClient:
 
         url = (
             f"https://generativelanguage.googleapis.com/v1beta/models/"
-            f"{self.model}:generateContent?key={self.api_key}"
+            f"{self.model}:generateContent"
         )
+        headers = {"x-goog-api-key": self.api_key}
         payload = {
             "contents": [{"parts": [{"text": prompt}]}],
             "generationConfig": {
@@ -48,7 +49,12 @@ class GeminiClient:
 
         for attempt in range(1, self.max_retries + 1):
             try:
-                resp = requests.post(url, json=payload, timeout=self.timeout)
+                resp = requests.post(
+                    url,
+                    headers=headers,
+                    json=payload,
+                    timeout=self.timeout,
+                )
                 if resp.status_code == 429:
                     retry_delay = self.backoff_factor * (2 ** (attempt - 1))
                     logger.warning(
@@ -67,11 +73,11 @@ class GeminiClient:
                 return ""
             except Exception as exc:
                 if attempt == self.max_retries:
-                    logger.error("Gemini generation failed after retries: %s", exc)
-                    raise RuntimeError(
-                        f"Gemini generation failed (Quota/Rate Limit reached). "
-                        f"Please wait 20s or switch LLM_PROVIDER=ollama in .env. Details: {exc}"
-                    ) from exc
+                    logger.error(
+                        "Gemini generation failed after retries: %s",
+                        type(exc).__name__,
+                    )
+                    raise RuntimeError("Gemini generation failed after retries") from exc
                 time.sleep(self.backoff_factor)
 
         raise RuntimeError("Gemini request failed after maximum retries.")
@@ -82,8 +88,9 @@ class GeminiClient:
 
         url = (
             f"https://generativelanguage.googleapis.com/v1beta/models/"
-            f"{self.model}:streamGenerateContent?key={self.api_key}&alt=sse"
+            f"{self.model}:streamGenerateContent?alt=sse"
         )
+        headers = {"x-goog-api-key": self.api_key}
         payload = {
             "contents": [{"parts": [{"text": prompt}]}],
             "generationConfig": {"temperature": 0.1, "maxOutputTokens": 512},
@@ -91,7 +98,13 @@ class GeminiClient:
 
         for attempt in range(1, self.max_retries + 1):
             try:
-                resp = requests.post(url, json=payload, timeout=self.timeout, stream=True)
+                resp = requests.post(
+                    url,
+                    headers=headers,
+                    json=payload,
+                    timeout=self.timeout,
+                    stream=True,
+                )
                 if resp.status_code == 429:
                     retry_delay = self.backoff_factor * (2 ** (attempt - 1))
                     logger.warning(
@@ -115,7 +128,9 @@ class GeminiClient:
                 return
             except Exception as exc:
                 if attempt == self.max_retries:
-                    logger.error("Gemini streaming failed after retries: %s", exc)
-                    raise RuntimeError(f"Gemini streaming failed: {exc}") from exc
+                    logger.error(
+                        "Gemini streaming failed after retries: %s",
+                        type(exc).__name__,
+                    )
+                    raise RuntimeError("Gemini streaming failed after retries") from exc
                 time.sleep(self.backoff_factor)
-

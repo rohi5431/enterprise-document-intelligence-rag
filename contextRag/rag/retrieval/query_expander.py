@@ -142,7 +142,7 @@ class QueryExpander:
                 break
 
         logger.info(
-            "Query expanded: original=%r → %d variants", query, len(unique) - 1
+            "Query expanded: %d variants", len(unique) - 1
         )
         return unique
 
@@ -165,7 +165,7 @@ class QueryExpander:
             logger.debug("LLM produced %d variants", len(variants))
             return variants
         except Exception as exc:
-            logger.warning("LLM query expansion failed: %s", exc)
+            logger.warning("LLM query expansion failed: %s", type(exc).__name__)
             return []
 
     @staticmethod

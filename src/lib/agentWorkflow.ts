@@ -1,6 +1,5 @@
 import { GoogleGenAI } from "@google/genai";
 import { scanAndSanitizePrompt } from "./guardrails";
-import { routeModel } from "./router";
 import { compilePrompt } from "./prompts";
 import { SessionMemory } from "./memory";
 import { cosineSimilarity, computeBm25Score } from "./retrievalUtils";
@@ -120,15 +119,18 @@ export class AgentWorkflow {
   private ai: GoogleGenAI | null;
   private db: any;
   private vectorSearch?: (vector: number[], userId: number, documentIds?: number[]) => Promise<Array<{ chunkId: string; score: number }>>;
+  private queryEmbedder?: (query: string) => Promise<number[] | null>;
 
   constructor(
     ai: GoogleGenAI | null,
     db: any,
     vectorSearch?: (vector: number[], userId: number, documentIds?: number[]) => Promise<Array<{ chunkId: string; score: number }>>,
+    queryEmbedder?: (query: string) => Promise<number[] | null>,
   ) {
     this.ai = ai;
     this.db = db;
     this.vectorSearch = vectorSearch;
+    this.queryEmbedder = queryEmbedder;
   }
 
   private canUseGemini(): boolean {
@@ -162,7 +164,7 @@ export class AgentWorkflow {
       retrievedChunks: [],
       rerankedChunks: [],
       citations: [],
-      selectedModel: process.env.GEMINI_MODEL?.trim() || "gemini-3.8-flash",
+      selectedModel: process.env.GROQ_MODEL || "openai/gpt-oss-120b",
       modelRoutingReason: "Default model baseline",
       costEstimate: 0,
       answer: "",
@@ -343,8 +345,10 @@ export class AgentWorkflow {
     const candidatesMap = new Map<string, { chunk: any; vectorScore: number; bm25Score: number }>();
 
     // Embed all multi-query variants
+    const queryVariants = this.ai ? state.multiQueries : state.multiQueries.slice(0, 1);
     const queryVectors = await Promise.all(
-      state.multiQueries.map(async (q) => {
+      queryVariants.map(async (q) => {
+        if (this.queryEmbedder) return this.queryEmbedder(q);
         if (!this.canUseGemini()) return null;
         try {
           const res = await this.ai.models.embedContent({
@@ -364,7 +368,8 @@ export class AgentWorkflow {
     const qdrantScores = new Map<string, number>();
     if (this.vectorSearch) {
       const firstVector = queryVectors.find((vector): vector is number[] => Array.isArray(vector) && vector.length > 0);
-      if (firstVector) {
+      const hasMatchingStoredVectors = firstVector && userChunks.some((chunk: any) => chunk.embedding?.length === firstVector.length);
+      if (firstVector && hasMatchingStoredVectors) {
         try {
           const matches = await this.vectorSearch(firstVector, state.userId, targetDocIds.length ? targetDocIds : undefined);
           matches.forEach((match) => qdrantScores.set(match.chunkId, match.score));
@@ -373,6 +378,13 @@ export class AgentWorkflow {
         }
       }
     }
+
+    // Pre-extract unique query terms across all multi-query variants for fast matching
+    const queryTerms = Array.from(new Set(
+      state.multiQueries.flatMap((q) =>
+        q.toLowerCase().replace(/[^\p{L}\p{N}\s-]/gu, " ").split(/\s+/).filter((w) => w.length > 2)
+      )
+    ));
 
     // Compute hybrid relevance (Qdrant/local semantic + lexical BM25) for each chunk
     userChunks.forEach((chunk: any) => {
@@ -384,15 +396,19 @@ export class AgentWorkflow {
         }
       });
 
+      // Quick match check to avoid expensive BM25 string parsing on non-matching chunks
+      const lowerText = chunk.text ? chunk.text.toLowerCase() : "";
+      const hasTermMatch = queryTerms.length === 0 || queryTerms.some((t) => lowerText.includes(t));
+
       // BM25 Text Scoring
       let maxBm25 = 0;
-      state.multiQueries.forEach((q) => {
-        maxBm25 = Math.max(maxBm25, computeBm25Score(chunk.text, q));
-      });
+      if (hasTermMatch) {
+        state.multiQueries.forEach((q) => {
+          maxBm25 = Math.max(maxBm25, computeBm25Score(chunk.text, q));
+        });
+      }
 
-      // Keep a modest lexical boost for an active document, but never give
-      // every chunk a fabricated semantic score. Doing so previously pushed
-      // irrelevant content into context and caused false "not found" answers.
+      // Keep a modest lexical boost for an active document
       if (targetDocIds.length > 0 && targetDocIds.includes(chunk.doc_id)) {
         maxBm25 = maxBm25 * 1.35;
       }
@@ -552,12 +568,14 @@ User Query: {{query}}`;
     }
 
     const prefs = this.db.user_prefs?.[state.userId] || {};
-    
-    const decision = routeModel(state.query, state.contextString?.length || 0, prefs.llm_model);
-    
-    state.selectedModel = decision.model;
-    state.modelRoutingReason = decision.reason;
-    state.costEstimate = decision.costEstimate;
+    const provider = prefs.llm_provider || process.env.LLM_PROVIDER || "groq";
+    const model = prefs.llm_model || (provider === "ollama"
+      ? (process.env.OLLAMA_MODEL || "llama3.2")
+      : (process.env.GROQ_MODEL || "openai/gpt-oss-120b"));
+
+    state.selectedModel = model;
+    state.modelRoutingReason = `Configured provider: ${provider}`;
+    state.costEstimate = 0;
     
     return state;
   }

@@ -1,8 +1,8 @@
 from starlette.middleware.base import BaseHTTPMiddleware
 from fastapi import Request, HTTPException, status
-import jwt
+from jose import JWTError
 
-SECRET_KEY = "your_jwt_secret"
+from app.core.security import decode_token
 
 class AuthMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
@@ -17,10 +17,15 @@ class AuthMiddleware(BaseHTTPMiddleware):
                 raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
                                     detail="Invalid auth scheme")
 
-            payload = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
+            payload = decode_token(token)
+            if payload.get("type") != "access":
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Invalid token type",
+                )
             # Attach user info to request
             request.state.user = payload
-        except Exception as e:
+        except JWTError:
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
                                 detail="Invalid or expired token")
 

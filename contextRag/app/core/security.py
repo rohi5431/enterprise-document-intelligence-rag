@@ -25,9 +25,8 @@ def verify_password(plain: str, hashed: str) -> bool:
 def create_access_token(subject: str | int, extra: dict | None = None) -> str:
     now = datetime.now(timezone.utc)
     expire = now + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
-    payload = {"sub": str(subject), "exp": expire, "iat": now, "type": "access"}
-    if extra:
-        payload.update(extra)
+    payload = dict(extra or {})
+    payload.update({"sub": str(subject), "exp": expire, "iat": now, "type": "access"})
     return jwt.encode(payload, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
 
 
@@ -40,7 +39,17 @@ def create_refresh_token(subject: str | int) -> str:
 
 def decode_token(token: str) -> dict:
     """Decode and validate JWT. Raises JWTError on failure."""
-    return jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+    payload = jwt.decode(
+        token,
+        settings.SECRET_KEY,
+        algorithms=[settings.ALGORITHM],
+        options={"require_exp": True, "require_sub": True},
+    )
+    if payload.get("type") not in {"access", "refresh"}:
+        raise JWTError("Invalid token type")
+    if not isinstance(payload.get("sub"), str) or not payload["sub"]:
+        raise JWTError("Invalid token subject")
+    return payload
 
 
 def get_subject_from_token(token: str) -> Optional[str]:

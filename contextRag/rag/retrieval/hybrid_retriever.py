@@ -65,11 +65,6 @@ class HybridRetriever:
         self._bm25 = bm25_retriever or get_bm25()
         from rag.retrieval.graph_retriever import get_graph
         self._graph = graph_retriever or get_graph()
-        print("\n===== HYBRID INIT =====")
-        print("BM25 READY =", self._bm25.is_ready)
-        print("BM25 CORPUS =", self._bm25.corpus_size)
-        print("GRAPH READY =", self._graph.is_ready)
-        print("GRAPH NODES =", self._graph.node_count)
         self._reranker = reranker or CrossEncoderReranker()
         self._expander = QueryExpander()
 
@@ -93,17 +88,10 @@ class HybridRetriever:
         latency: Dict[str, float] = {}
         t_total = time.perf_counter()
         # Query Expansion
-        print("\n===== EXPAND QUERY FLAG =====")
-        print(request.expand_query)
         if request.expand_query:
             request.expanded_queries = self._expander.expand(
                 request.query
             )
-        
-            print("\n===== QUERY EXPANSION =====")
-
-            for q in request.expanded_queries:
-                print("-", q)
 
         # ── Stage 1: Dense retrieval ──────────────────────────────────────
         vector_chunks: List[RetrievedChunk] = []

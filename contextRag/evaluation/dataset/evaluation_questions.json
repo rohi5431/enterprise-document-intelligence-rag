@@ -1,0 +1,5 @@
+{
+  "status": "NOT EVALUATED",
+  "reason": "No verified corpus snapshot or question-to-document relevance labels were available. Do not infer labels from sample_qa.json.",
+  "questions": []
+}

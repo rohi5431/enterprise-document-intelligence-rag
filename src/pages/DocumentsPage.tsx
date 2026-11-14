@@ -128,7 +128,7 @@ export function DocumentsPage({ token, isAdmin, onPreview }: DocumentsPageProps)
             multiple
             hidden
             onChange={handleFileInputChange}
-            accept=".pdf,.docx,.txt,.md,.png,.jpg,.jpeg,.tiff,.bmp,.webp"
+            accept=".pdf,.docx,.doc,.xlsx,.xls,.pptx,.ppt,.txt,.md,.csv,.tsv,.html,.htm,.json,.png,.jpg,.jpeg,.tiff,.tif,.bmp,.webp"
             id="doc-upload-input"
           />
         </label>
@@ -153,7 +153,7 @@ export function DocumentsPage({ token, isAdmin, onPreview }: DocumentsPageProps)
         <p className="text-sm text-zinc-400 font-sans">
           <span className="font-bold text-orange-400">Click to upload</span> or drag &amp; drop multiple files
         </p>
-        <p className="text-[11px] text-zinc-600 mt-1">PDF, DOCX, TXT, MD, PNG, JPG, TIFF, BMP, WEBP</p>
+        <p className="text-[11px] text-zinc-600 mt-1">PDF, DOCX, DOC, XLSX, PPTX, CSV, TXT, MD, HTML, JSON, Images</p>
       </div>
 
       {/* Per-file upload progress */}
