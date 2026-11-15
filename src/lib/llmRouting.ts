@@ -100,7 +100,7 @@ export class CentralizedLLMService {
   }
 
   getOllamaModel(preferred?: string): string {
-    return preferred || process.env.OLLAMA_MODEL?.trim() || "llama3:latest";
+    return preferred || process.env.OLLAMA_MODEL?.trim() || "qwen2.5:1.5b";
   }
 
   getOllamaBaseUrl(): string {
@@ -120,7 +120,7 @@ export class CentralizedLLMService {
     }
     if (provider === "ollama") {
       const primary = this.getOllamaModel(preferredModel);
-      const fallbacks = ["llama3:latest", "llama3.2", "llama3", "mistral"];
+      const fallbacks = ["qwen2.5:1.5b", "llama3:latest", "llama3.2", "llama3"];
       return [primary, ...fallbacks.filter((m) => m !== primary)];
     }
     return [];
@@ -239,6 +239,10 @@ export class CentralizedLLMService {
           }
 
           if (text && text.trim().length > 0) {
+            text = text
+              .replace(/\s*【[^】]*】/g, "")
+              .replace(/\s*\[\d+†[^\]]*\]/g, "")
+              .replace(/\s+([.,;:!?])/g, "$1");
             fallbackHistory.push({
               provider,
               model,
@@ -322,6 +326,10 @@ export class CentralizedLLMService {
           }
 
           if (tokensEmitted > 0) {
+            fullAnswer = fullAnswer
+              .replace(/\s*【[^】]*】/g, "")
+              .replace(/\s*\[\d+†[^\]]*\]/g, "")
+              .replace(/\s+([.,;:!?])/g, "$1");
             fallbackHistory.push({
               provider,
               model,
@@ -355,6 +363,12 @@ export class CentralizedLLMService {
           // to avoid corrupting client stream with conflicting output.
           if (tokensEmitted > 0) {
             throw new Error(`Stream terminated mid-generation from ${provider} (${model}): ${errMsg}`);
+          }
+
+          // If the provider returned 401/403 or API key error, skip immediately to the next provider
+          if (/401|403|unauthorized|forbidden|not configured|API_KEY/i.test(errMsg)) {
+            console.warn(`[LLM Router] Auth failure on ${provider}, skipping remaining models for this provider.`);
+            break;
           }
         }
       }

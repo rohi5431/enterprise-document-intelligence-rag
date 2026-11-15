@@ -17,7 +17,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
-        env_file=".env",
+        env_file=(".env", "../.env"),
         env_file_encoding="utf-8",
         case_sensitive=False,
         extra="ignore",
@@ -36,7 +36,7 @@ class Settings(BaseSettings):
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
 
     # ─── PostgreSQL ────────────────────────────────────────────────────────────
-    DATABASE_URL: str = "postgresql://postgres:Rohit%405431@localhost:5432/rag_db"
+    DATABASE_URL: str = "postgresql+psycopg2://postgres:YourOwnStrongDevelopmentRohit123!@localhost:5433/rag_db"
     DATABASE_POOL_SIZE: int = 10
     DATABASE_MAX_OVERFLOW: int = 20
     DATABASE_POOL_TIMEOUT: int = 30

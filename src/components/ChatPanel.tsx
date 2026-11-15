@@ -329,7 +329,10 @@ export function ChatPanel({
       setSpeakingMsgId(null);
     } else {
       window.speechSynthesis.cancel();
-      const cleanText = text.replace(/\[\d+\]/g, ""); // strip bracketed citations for better reading aloud
+      const cleanText = text
+        .replace(/\s*【[^】]*】/g, "")
+        .replace(/\s*\[\d+†[^\]]*\]/g, "")
+        .replace(/\[\d+\]/g, ""); // strip citations for better reading aloud
       const utterance = new SpeechSynthesisUtterance(cleanText);
       utterance.onend = () => setSpeakingMsgId(null);
       utterance.onerror = () => setSpeakingMsgId(null);
@@ -347,8 +350,91 @@ export function ChatPanel({
     }
   };
 
+  const cleanMathFormulas = (content: string): string => {
+    if (!content) return "";
+    let text = content;
+
+    // 1. Remove \text{...} and \mathrm{...}
+    text = text.replace(/\\text\{([^}]+)\}/g, "$1");
+    text = text.replace(/\\mathrm\{([^}]+)\}/g, "$1");
+
+    // 2. Symbols & operators
+    text = text.replace(/\\times/g, "×");
+    text = text.replace(/\\cdot/g, "·");
+    text = text.replace(/\\pm/g, "±");
+    text = text.replace(/\\approx/g, "≈");
+    text = text.replace(/\\leq/g, "≤");
+    text = text.replace(/\\geq/g, "≥");
+    text = text.replace(/\\neq/g, "≠");
+    text = text.replace(/\\infty/g, "∞");
+
+    // 3. LaTeX spaces and formatting wrappers
+    text = text.replace(/\\[ ,;!]/g, " ");
+    text = text.replace(/\\left\s*([(\[{|])/g, "$1");
+    text = text.replace(/\\right\s*([)\]}|])/g, "$1");
+
+    // 4. Common fraction shortcuts
+    text = text.replace(/\\tfrac12/g, "1/2");
+    text = text.replace(/\\frac12/g, "1/2");
+    text = text.replace(/\\tfrac14/g, "1/4");
+    text = text.replace(/\\frac14/g, "1/4");
+    text = text.replace(/\\tfrac34/g, "3/4");
+    text = text.replace(/\\frac34/g, "3/4");
+
+    // 5. Expand nested/general fractions \frac{num}{den} -> (num) / (den) or num / den
+    let prev = "";
+    let loopCount = 0;
+    while (prev !== text && loopCount++ < 5) {
+      prev = text;
+      text = text.replace(/\\(?:t?frac)\{((?:[^{}]|\{[^{}]*\})+)\}\{((?:[^{}]|\{[^{}]*\})+)\}/g, (_match, num, den) => {
+        const cleanNum = num.trim();
+        const cleanDen = den.trim();
+        const simpleNum = /^[a-zA-Z0-9_\s.-]+$/.test(cleanNum);
+        const simpleDen = /^[a-zA-Z0-9_\s.-]+$/.test(cleanDen);
+        if (simpleNum && simpleDen) {
+          return `${cleanNum} / ${cleanDen}`;
+        }
+        return `(${cleanNum}) / (${cleanDen})`;
+      });
+    }
+
+    // 6. Subscripts like v_{final} or v_{initial} -> v_final or v_initial
+    text = text.replace(/_\{([^}]+)\}/g, "_$1");
+
+    // 7. Common unit & power conversions
+    text = text.replace(/ms\^\{-?1\}|ms\^-1/g, "m/s");
+    text = text.replace(/ms\^\{-?2\}|ms\^-2/g, "m/s²");
+    text = text.replace(/km\s*h\^\{-?1\}|km\s*h\^-1/g, "km/h");
+    text = text.replace(/\^\{2\}|\^2/g, "²");
+    text = text.replace(/\^\{3\}|\^3/g, "³");
+    text = text.replace(/\^\{-1\}|\^-1/g, "⁻¹");
+    text = text.replace(/\^\{-2\}|\^-2/g, "⁻²");
+
+    // 8. Clean isolated math bracket display markers: [ equation ] -> equation
+    text = text.replace(/^\s*\[\s*([a-zA-Z0-9].*?)\s*\]\s*$/gm, "$1");
+    // Clean inline math parenthesis: (v = d/t) -> v = d/t
+    text = text.replace(/\(\s*([a-zA-Z]\s*=\s*[^)]+)\s*\)/g, "$1");
+
+    // 9. Strip any leftover stray LaTeX backslashes before plain words
+    text = text.replace(/\\([a-zA-Z]+)/g, "$1");
+
+    return text;
+  };
+
   const preprocessContent = (content: string) => {
-    return content.replace(/\[([0-9]+)\]/g, "[$1](#cit-$1)");
+    if (!content) return "";
+    // 1. Strip all LLM citation annotations like 【1†L9-L15】, 【3†L13-L23】, 【4:1†source】
+    // Also matches unclosed 【 during streaming so it hides immediately
+    let cleaned = content.replace(/\s*【[^】]*(?:】|$)/g, "");
+    cleaned = cleaned.replace(/\s*\[\d+†[^\]]*(?:\]|$)/g, "");
+    // 2. Convert raw LaTeX formulas into clean, readable math notation
+    cleaned = cleanMathFormulas(cleaned);
+    // 3. Normalize whitespace around punctuation
+    cleaned = cleaned.replace(/\s+([.,;:!?])/g, "$1");
+    // 4. Prevent excessive blank lines
+    cleaned = cleaned.replace(/\n{3,}/g, "\n\n");
+    // 5. Format clean bracketed citations [1] -> [1](#cit-1)
+    return cleaned.replace(/\[([0-9]+)\]/g, "[$1](#cit-$1)");
   };
 
   const {
@@ -471,9 +557,18 @@ export function ChatPanel({
     for (let i = 0; i < files.length; i++) {
       const name = newAttachments[i].name;
       try {
-        await apiUploadDocument(token, new File([files[i]], name, { type: files[i].type }));
+        const uploadedDoc = await apiUploadDocument(token, new File([files[i]], name, { type: files[i].type }));
         setPendingAttachments((prev) =>
-          prev.map((a) => (a.id === newAttachments[i].id ? { ...a, uploaded: true } : a))
+          prev.map((a) =>
+            a.id === newAttachments[i].id
+              ? {
+                  ...a,
+                  uploaded: true,
+                  docId: uploadedDoc.id,
+                  alreadyExists: !!(uploadedDoc as any).already_exists,
+                }
+              : a
+          )
         );
       } catch (err) {
         setPendingAttachments((prev) =>
@@ -619,7 +714,7 @@ export function ChatPanel({
     const attachedDocName = attachmentsToSend.map((a) => a.name).join(", ");
 
     const targetDocIds = attachedDocIds.length > 0 ? attachedDocIds : activeSession?.document_ids;
-    const targetDocName = attachedDocName || activeSession?.document_name;
+    const targetDocName = attachedDocIds.length > 0 ? attachedDocName : activeSession?.document_name;
 
     onSend(finalText, selectedTemplate, {
       model: overrideModel,
@@ -691,7 +786,7 @@ export function ChatPanel({
           )}
 
           {messages.map((msg, idx) => (
-            <div key={msg.id ?? idx} className={`message-bubble font-sans p-5 rounded-2xl max-w-full ${msg.role}`}>
+            <div key={msg.id ?? idx} className={`message-bubble font-sans p-4 sm:p-4.5 rounded-2xl max-w-full ${msg.role}`}>
               <div className="message-role text-[10px] uppercase tracking-widest text-zinc-500 font-bold mb-2 flex items-center gap-2">
                 <span>{msg.role === "assistant" ? "AI Studio" : msg.role === "user" ? "You" : "System"}</span>
                 {/* Router mode badge */}
@@ -752,7 +847,7 @@ export function ChatPanel({
                   ))}
                 </div>
               )}
-              <div className="message-content text-zinc-200 text-sm leading-relaxed">
+              <div className="message-content text-zinc-200 text-sm leading-normal">
                 <ReactMarkdown
                   remarkPlugins={[remarkGfm]}
                   components={{
@@ -793,7 +888,7 @@ export function ChatPanel({
                 {msg.isStreaming && <span className="streaming-cursor ml-1">▊</span>}
               </div>
               {msg.role === "assistant" && msg.citations?.some((citation) => citation.image_base64) && (
-                <div className="mt-3 overflow-hidden rounded-xl border border-orange-500/20 bg-zinc-950/60">
+                <div className="mt-2 overflow-hidden rounded-xl border border-orange-500/20 bg-zinc-950/60">
                   {Array.from(new Map(msg.citations.filter((citation) => citation.image_base64).map((citation) => [citation.image_base64, citation])).values()).slice(0, 2).map((citation) => (
                     <button
                       key={citation.chunk_id}

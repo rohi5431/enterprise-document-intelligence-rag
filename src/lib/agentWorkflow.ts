@@ -462,16 +462,48 @@ export class AgentWorkflow {
       };
     });
 
+    // For multi-document targets, ensure balanced representation across all target documents
+    let balancedChunks: any[] = [];
+    if (targetDocIds.length > 1) {
+      const perDoc = new Map<number, any[]>();
+      targetDocIds.forEach((id) => perDoc.set(id, []));
+      for (const item of mappedChunks) {
+        const dId = item.chunk.doc_id;
+        if (perDoc.has(dId) && perDoc.get(dId)!.length < 5) {
+          perDoc.get(dId)!.push(item);
+        }
+      }
+      // Round-robin merge to ensure every document is represented in top positions
+      const maxLen = Math.max(...Array.from(perDoc.values()).map((v) => v.length), 0);
+      for (let i = 0; i < maxLen; i++) {
+        for (const docId of targetDocIds) {
+          const list = perDoc.get(docId);
+          if (list && list[i]) {
+            balancedChunks.push(list[i]);
+          }
+        }
+      }
+      // Fill remaining if any
+      for (const item of mappedChunks) {
+        if (!balancedChunks.includes(item)) {
+          balancedChunks.push(item);
+        }
+      }
+    } else {
+      balancedChunks = mappedChunks;
+    }
+
     state.diagnostics.retrieval_ms = Date.now() - start;
     return {
       ...state,
-      retrievedChunks: mappedChunks,
+      retrievedChunks: balancedChunks,
     };
   }
 
   private async rerankerNode(state: AgentState): Promise<AgentState> {
     const start = Date.now();
-    let topChunks = state.retrievedChunks.slice(0, 10); // Grab top 10 candidates for reranking
+    const candidateLimit = state.documentIds && state.documentIds.length > 1 ? 16 : 10;
+    let topChunks = state.retrievedChunks.slice(0, candidateLimit); // Grab candidates for reranking
 
     const rerankEnabled = state.rerankingEnabled !== false;
 
@@ -513,10 +545,11 @@ Output a JSON array of index integers sorted from most relevant to least relevan
       }
     }
 
+    const outputLimit = state.documentIds && state.documentIds.length > 1 ? Math.min(10, state.documentIds.length * 4) : 5;
     state.diagnostics.rerank_ms = Date.now() - start;
     return {
       ...state,
-      rerankedChunks: topChunks.slice(0, 5), // Keep top 5 after reranking
+      rerankedChunks: topChunks.slice(0, outputLimit), // Keep balanced chunks after reranking
     };
   }
 
@@ -529,17 +562,38 @@ Output a JSON array of index integers sorted from most relevant to least relevan
 Instructions:
 1. Answer the user's query thoroughly using the provided source contexts. Understand Hindi, English, and Hinglish (a Hindi-English mix); answer in the user's preferred language when possible.
 2. If the user asks for all content, full text, summary, credentials, or an overview of the file, provide the full details and content present in the source contexts.
-3. Cite references with bracketed numbers corresponding to the source number, like [1], [2].
+3. Cite references strictly with bracketed numbers corresponding to the source number, like [1], [2]. Never output dagger or line-range tokens such as 【1†L9-L15】 or 【...】.
 4. Do not say "Answer not found in documents" merely because wording differs. First use related terms, source headings, diagrams, and context to provide the best grounded answer. Say it only when the sources truly contain no supporting information.
+5. If multiple documents or images are provided, you MUST examine and address ALL of them. Provide answers covering each document/image clearly under separate headings.
+6. Format all mathematical equations, formulas, calculations, and units using clean, standard, human-readable plain text / Markdown notation (like ChatGPT: for example v = d / t, a = (v_final - v_initial) / t = (30 - 10) / 5 = 4 m/s², s = ut + (1/2) a t² = 100 m). NEVER output raw LaTeX syntax like \\frac{...}{...}, \\text{...}, \\tfrac, or \\times.
 
 Context sources:
 {{context}}
 
 User Query: {{query}}`;
 
-    const contextCombined = state.rerankedChunks
-      .map((item, idx) => `[Source ${idx + 1}]: ${item.chunk.text}`)
-      .join("\n\n");
+    let contextCombined = "";
+    if (state.documentIds && state.documentIds.length > 1) {
+      const byDoc = new Map<number, any[]>();
+      state.rerankedChunks.forEach((item) => {
+        const dId = item.chunk.doc_id;
+        if (!byDoc.has(dId)) byDoc.set(dId, []);
+        byDoc.get(dId)!.push(item);
+      });
+      let srcCounter = 1;
+      const sections: string[] = [];
+      byDoc.forEach((items, dId) => {
+        const docObj = this.db.documents.find((d: any) => d.id === dId);
+        const docTitle = docObj?.filename || docObj?.title || `Document ${dId}`;
+        const chunkTexts = items.map((it) => `[Source ${srcCounter++}]: ${it.chunk.text}`).join("\n\n");
+        sections.push(`=== Document: ${docTitle} ===\n${chunkTexts}`);
+      });
+      contextCombined = sections.join("\n\n");
+    } else {
+      contextCombined = state.rerankedChunks
+        .map((item, idx) => `[Source ${idx + 1}]: ${item.chunk.text}`)
+        .join("\n\n");
+    }
 
     // Include Conversation Memory context
     let memoryContext = "";
