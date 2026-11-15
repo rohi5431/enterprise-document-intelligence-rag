@@ -723,7 +723,7 @@ async function callGroqChat(promptText: string, preferredModel?: string): Promis
 async function callGroqVision(mimeType: string, base64Image: string, promptText: string): Promise<{ text: string; model: string } | null> {
   const apiKey = process.env.GROQ_API_KEY;
   if (!apiKey) return null;
-  for (const model of ["qwen/qwen3.8-27b"]) {
+  for (const model of ["llama-3.2-11b-vision-preview", "llama-3.2-90b-vision-preview", "qwen/qwen3.8-27b"]) {
     try {
       const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
         method: "POST",
@@ -1290,13 +1290,12 @@ async function processUploadedDocument(
   }
   const contentHash = validation.contentHash;
 
-  // Check if document already exists for this user to remove redundancy
+  // Check if document already exists for this user by content hash to prevent redundant re-indexing
   const existingDoc = db.documents.find(
     (d) =>
       d.user_id === u.id &&
-      ((d.content_hash && d.content_hash === contentHash) ||
-        d.filename.toLowerCase() === filename.toLowerCase() ||
-        (d.file_size === rawBuffer.length && d.title.toLowerCase() === filename.replace(/\.[^/.]+$/, "").toLowerCase()))
+      d.content_hash &&
+      d.content_hash === contentHash
   );
 
   if (existingDoc) {
@@ -2143,9 +2142,16 @@ v1Router.post("/chat/message", authenticateToken, async (req, res) => {
     db.sessions.push(newSession);
     session = newSession;
   } else if (session && targetDocIds.length > 0) {
+    const isNewDoc = !session.document_ids ||
+      session.document_ids.length !== targetDocIds.length ||
+      session.document_ids.some((id: number) => !targetDocIds.includes(id));
     session.document_ids = targetDocIds;
-    if (resolvedDocName && !session.document_name) {
+    if (resolvedDocName) {
       session.document_name = resolvedDocName;
+    }
+    if (isNewDoc && session.memory) {
+      session.memory.summary = `Switched to active document: ${resolvedDocName || "new image"}`;
+      session.memory.important_facts = [];
     }
   }
 
@@ -2200,6 +2206,12 @@ ${citations.map((c) => `• [${c.citation_number}] - ${c.doc_title}: "${c.text_s
   }
 
   // Automated RAG Evaluation (RAGAS-equivalent metrics)
+  // Sanitize fullAnswer to strip any LLM annotation tokens like 【1†L9-L15】
+  fullAnswer = fullAnswer
+    .replace(/\s*【[^】]*】/g, "")
+    .replace(/\s*\[\d+†[^\]]*\]/g, "")
+    .replace(/\s+([.,;:!?])/g, "$1");
+
   let evalRes = { faithfulness: 1, context_precision: 1, answer_relevancy: 1, context_recall: 1, feedback_summary: "No context." };
   if (!finalState.unsafeDetected && citations.length > 0) {
     evalRes = await evaluateRag(
@@ -2431,9 +2443,16 @@ v1Router.post("/chat/message/stream", authenticateToken, async (req, res) => {
       document_name: resolvedDocName,
     });
   } else if (session && targetDocIds.length > 0) {
+    const isNewDoc = !session.document_ids ||
+      session.document_ids.length !== targetDocIds.length ||
+      session.document_ids.some((id: number) => !targetDocIds.includes(id));
     session.document_ids = targetDocIds;
-    if (resolvedDocName && !session.document_name) {
+    if (resolvedDocName) {
       session.document_name = resolvedDocName;
+    }
+    if (isNewDoc && session.memory) {
+      session.memory.summary = `Switched to active document: ${resolvedDocName || "new image"}`;
+      session.memory.important_facts = [];
     }
   }
 
@@ -2519,6 +2538,12 @@ v1Router.post("/chat/message/stream", authenticateToken, async (req, res) => {
   }
 
   // RAG Evaluation
+  // Sanitize fullAnswer to strip any LLM annotation tokens like 【1†L9-L15】
+  fullAnswer = fullAnswer
+    .replace(/\s*【[^】]*】/g, "")
+    .replace(/\s*\[\d+†[^\]]*\]/g, "")
+    .replace(/\s+([.,;:!?])/g, "$1");
+
   let evalRes = { faithfulness: 1, context_precision: 1, answer_relevancy: 1, context_recall: 1, feedback_summary: "No context." };
   if (!finalState.unsafeDetected && citations.length > 0) {
     evalRes = await evaluateRag(

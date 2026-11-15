@@ -29,6 +29,9 @@ ENV/
 scratch/
 *.log
 
+# Large local data files (exceed GitHub 100MB limit — use LFS or keep local only)
+db.json
+
 # OS & IDE
 .DS_Store
 Thumbs.db

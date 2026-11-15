@@ -756,3 +756,8 @@ Areas of interest:
 
 Add a license file to the repository if you intend to distribute or reuse the project under an open-source license.
 
+# (.venv) PS D:\ContextRagSystem> docker compose up -d qdrant redis neo4j postgres
+# (.venv) PS D:\ContextRagSystem> npm run dev
+# (.venv) PS D:\ContextRagSystem\contextRag> python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+# (.venv) PS D:\ContextRagSystem\contextRag> python -m celery -A app.workers.celery_app:celery_app worker --loglevel=INFO --pool=solo
+# ollama serve
