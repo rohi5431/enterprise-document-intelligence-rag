@@ -288,7 +288,6 @@ The RAG pipeline retrieves relevant document context before generating an answer
 
 ### AI Chat Interface
 
-<img width="1863" height="835" alt="AI Chat Interface" src="https://github.com/user-attachments/assets/44e10c8a-3aff-41ea-8feb-6097b6c7ea94" />
 <img width="1913" height="975" alt="image" src="https://github.com/user-attachments/assets/74926251-6d60-4a8e-ba88-549e8c0f7f2c" />
 
 <img width="1910" height="981" alt="image" src="https://github.com/user-attachments/assets/cc2e566b-9252-44f4-91a1-97ef31923e00" />
