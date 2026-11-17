@@ -293,11 +293,12 @@ The RAG pipeline retrieves relevant document context before generating an answer
 <img width="1910" height="981" alt="image" src="https://github.com/user-attachments/assets/cc2e566b-9252-44f4-91a1-97ef31923e00" />
 
 
-<img width="1865" height="843" alt="AI Chat Interface" src="https://github.com/user-attachments/assets/fac53c1f-f45e-45c5-bcc5-b0801bcd1cfe" />
+<img width="1919" height="914" alt="image" src="https://github.com/user-attachments/assets/7ba60784-5d2c-4c3a-a1c8-7bc23da11b7c" />
+<img width="1916" height="967" alt="image" src="https://github.com/user-attachments/assets/77e4a9aa-917b-4140-b0ae-56fe84d49f20" />
+<img width="1917" height="973" alt="image" src="https://github.com/user-attachments/assets/741d29d8-fecd-4566-8edf-a578e421ef53" />
 
-<img width="1904" height="920" alt="AI Chat Interface" src="https://github.com/user-attachments/assets/8314ed06-2752-4180-a152-5178c1020c02" />
 
-<img width="1909" height="927" alt="AI Chat Interface" src="https://github.com/user-attachments/assets/fb2a4a0e-1474-4318-b36e-551e1339aa83" />
+
 
 ---
 
