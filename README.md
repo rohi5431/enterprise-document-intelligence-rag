@@ -274,9 +274,9 @@ The RAG pipeline retrieves relevant document context before generating an answer
 
 <img width="1792" height="845" alt="Authentication Interface" src="https://github.com/user-attachments/assets/56e0b19b-a696-4778-9289-11e802604c88" />
 
-<img width="1883" height="924" alt="Authentication Interface" src="https://github.com/user-attachments/assets/a7892af6-31bf-4ad5-a214-d0454ca20556" />
+<img width="1918" height="958" alt="image" src="https://github.com/user-attachments/assets/9156e91d-ac35-41f2-9d6d-d1d74532aa48" />
+<img width="1916" height="979" alt="image" src="https://github.com/user-attachments/assets/ebeb36b2-cd29-4293-ba39-15849b9eb52e" />
 
-<img width="1905" height="920" alt="Authentication Interface" src="https://github.com/user-attachments/assets/a59378e1-d14b-43a3-95bf-fc59bbff95de" />
 
 <img width="1901" height="918" alt="Authentication Interface" src="https://github.com/user-attachments/assets/b6a4299a-b0da-4213-bc3d-3debec242661" />
 
